@@ -4,8 +4,11 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import csv
 
+import sys
+sys.path.append("./script")
+
 from copy import deepcopy
-from movement import DMP
+from dmp import DMP
 from utils import Kinematics, InverseKinematics, JacobianMatrix
 
 
@@ -65,7 +68,7 @@ def PotentialForceFile(px,pz):
         
 if __name__ == "__main__":
     
-    path = "D:/MyFolder/code/EXO_ROS/Exoskeleton_WP3/machine_learning/gait/data/"
+    path = "./data/joint_angle/"
     file_name = "SN_all_subj_obstacle_first"
 
     file_path = path + file_name + ".txt"
