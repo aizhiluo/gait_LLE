@@ -9,7 +9,7 @@ from utils import Kinematics, InverseKinematics
 class EXO_OBS:
     """
     """
-    def __init__(self,thigh=0.44,shank=0.565):
+    def __init__(self,obs_d,obs_h,obs_w,thigh=0.44,shank=0.565):
         """initial exo parameters
 
         Args:
@@ -20,19 +20,27 @@ class EXO_OBS:
         self.shank=shank
         
         # obstacle location and size
-        self.obs_dist = 0.2 # assume obstacle locates in x-axis z = 0
-        self.obs_height = 0.08
-        self.obs_width = 0.08
+        self.obs_dist = obs_d # assume obstacle locates in x-axis z = 0
+        self.obs_height = obs_h
+        self.obs_width = obs_w
         
         # set the position of stance ankle, which is used to calculate the exo joint position in world coordination
         self.ankle_offset_px = 0.0
         self.ankle_offset_pz = 0.0
         self.last_step_is_left = True 
         
+        # exo joint status and left foot position
+        self.lh = 0.0
+        self.lk = 0.0
+        self.rh = 0.0
+        self.rk = 0.0
+        self.lf_px = 0.0
+        self.lf_pz = 0.0
+        
         # foot trajectory
         self.traj = []
     
-    def update_stace_leg(self,is_left_stance,lh,lk,rh,rk):
+    def update_stace_leg(self,is_left_stance):
         """update the offset position when changing the stance leg
 
         Args:
@@ -44,25 +52,33 @@ class EXO_OBS:
         """
         self.traj = [] # clear list
         
-        l_ankle_px, l_ankle_pz = Kinematics(lh,lk,self.thigh,self.shank)
-        r_ankle_px, r_ankle_pz = Kinematics(rh,rk,self.thigh,self.shank)
+        l_ankle_px, l_ankle_pz = Kinematics(self.lh,self.lk,self.thigh,self.shank)
+        r_ankle_px, r_ankle_pz = Kinematics(self.rh,self.rk,self.thigh,self.shank)
         
         if self.last_step_is_left != is_left_stance:
             self.ankle_offset_px += abs(l_ankle_px-r_ankle_px)
 
         self.last_step_is_left = is_left_stance
         
-        
+    def get_dist_obstacle(self):
+        """return the distance between stance foot and obstacle
+
+        Returns:
+            float: distance between stance foot and obstacle
+        """
+        return self.obs_dist-self.ankle_offset_px
+     
     def plot_exo(self,is_left_stance,lh,lk,rh,rk):
         
         # cal obstacle corner position
         obstacle_px = np.array([self.obs_dist,self.obs_dist,self.obs_dist+self.obs_width,self.obs_dist+self.obs_width,self.obs_dist])
         obstacle_pz = np.array([0,self.obs_height,self.obs_height,0,0])
         
-        # cal exo joint position
+        # cal exo joint position in local frame whose origin is hip joint
         l_foot_px, l_foot_pz = Kinematics(lh,lk,self.thigh,self.shank)
         r_foot_px, r_foot_pz = Kinematics(rh,rk,self.thigh,self.shank)
         
+        # transfer the joint position in the hip coordinate to the world coordinate
         if is_left_stance:
             l_ankle_z = 0
             l_ankle_x = self.ankle_offset_px
@@ -76,6 +92,7 @@ class EXO_OBS:
             r_ankle_z = hip_z + r_foot_pz
             r_ankle_x = hip_x + r_foot_px
             
+            # add trajectory point to plot
             self.traj.append([r_ankle_x,r_ankle_z])
         else:
             r_ankle_z = 0
@@ -91,15 +108,23 @@ class EXO_OBS:
             l_ankle_x = hip_x + l_foot_px
             
             self.traj.append([l_ankle_x,l_ankle_z])
-            
+        
+        # update exo joint and left foot position
+        self.lh = lh
+        self.lk = lk
+        self.rh = rh
+        self.rk = rk
+        self.lf_px = l_knee_x
+        self.lf_pz = l_knee_z
+        
+        
+        # plot obstacle, exo leg, and swing foot trajectory
         left_leg_px = np.array([hip_x,l_knee_x,l_ankle_x])
         left_leg_pz = np.array([hip_z,l_knee_z,l_ankle_z])
         right_leg_px = np.array([hip_x,r_knee_x,r_ankle_x])
         right_leg_pz = np.array([hip_z,r_knee_z,r_ankle_z])
-        
         sw_traj = np.array(self.traj)
         
-        # plot
         plt.clf()
         plt.plot(obstacle_px,obstacle_pz,'r',lw=3.0)
         plt.plot(left_leg_px,left_leg_pz,'b-o',lw=3.0)
@@ -111,6 +136,6 @@ class EXO_OBS:
         plt.ylim([-0.05, 1.2])
         
         plt.ioff()
-        plt.pause(0.02)
+        plt.pause(0.000001)
        
         # plt.show()
