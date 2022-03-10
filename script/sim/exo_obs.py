@@ -37,7 +37,7 @@ class EXO_OBS:
         self.lf_px = 0.0
         self.lf_pz = 0.0
         
-        # foot trajectory
+        # swing foot trajectory
         self.traj = []
     
     def update_stace_leg(self,is_left_stance):
@@ -67,7 +67,22 @@ class EXO_OBS:
             float: distance between stance foot and obstacle
         """
         return self.obs_dist-self.ankle_offset_px
-     
+   
+    def plot_one_step(self,is_left_stance,st_h,st_k,sw_h,sw_k):
+        """_summary_
+
+        Args:
+            is_left_stance (bool): 
+            st_h (_type_): raw stance hip joint angle
+            st_k (_type_): raw stance knee joint angle
+            sw_h (_type_): raw swing hip joint angle
+            sw_k (_type_): raw swing knee joint angle
+        """
+        num = st_h.shape[0]
+        for i in range(num//5):
+            j = i * 5
+            self.plot_exo(True,st_h[j],st_k[j],sw_h[j],sw_k[j])      
+        
     def plot_exo(self,is_left_stance,lh,lk,rh,rk):
         
         # cal obstacle corner position
@@ -129,13 +144,11 @@ class EXO_OBS:
         plt.plot(obstacle_px,obstacle_pz,'r',lw=3.0)
         plt.plot(left_leg_px,left_leg_pz,'b-o',lw=3.0)
         plt.plot(right_leg_px,right_leg_pz,'r-*',lw=3.0)
-        
         plt.plot(sw_traj[:,0],sw_traj[:,1],'g',lw=2.0)
+        plt.legend(('obstacle','stance leg','swing leg','swing foot traj'))
         
         plt.xlim([-0.5, 1.2])
         plt.ylim([-0.05, 1.2])
         
         plt.ioff()
         plt.pause(0.000001)
-       
-        # plt.show()
