@@ -109,16 +109,16 @@ def RepusiveForceFile(px,pz,obs_d,obs_w,obs_h):
     center_z = np.mean(corner_z)
     
     # the parameters of the repulsive force
-    alpha = 1.0
-    beta = 63.25
-    k = 10.0
-    
-    # potential fields repulsive force formula parameters
     radius = max(obs_h,obs_w) / np.sqrt(2)
-    D = 0.05 # tolent space
-    k = alpha / (radius + D)
-    beta = np.sqrt(k/(radius * D))
+    D = radius / 3.0 # tolent space
+        
+    alpha = 1.0
+    k = 1 / radius
+    beta = np.sqrt((radius-D)/(D*radius**3))
+    # k = alpha / (radius + D) // the filed with this parameters is not monotone function
+    # beta = np.sqrt(k/(radius * D))
     
+    # potential  repulsive force fields formula
     if only_one_point is True:
         # only considering the center point of the obstacle
         dist = (px-center_x)**2 + (pz-center_z)**2
@@ -149,6 +149,8 @@ shank_length = 0.565
 obstacle_dist = 0.15 # assume obstacle locates in x-axis z = 0
 obstacle_width = 0.1
 obstacle_height = 0.1
+obstacle_px = np.array([obstacle_dist,obstacle_dist,obstacle_dist+obstacle_width,obstacle_dist+obstacle_width,obstacle_dist])
+obstacle_pz = np.array([0,obstacle_height,obstacle_height,0,0])
 exo = EXO_OBS(obstacle_dist,obstacle_height,obstacle_width,thigh_length,shank_length)
 
 # first obstacle step with left swing
@@ -195,6 +197,7 @@ plt.ylabel('adjustment/m')
 plt.subplot(223)
 plt.plot(px,pz,'b--',lw=2.0) # end effector trajectory
 plt.plot(post_sw_px-foot_px[0,:],post_sw_pz-foot_pz[0,:],'c-',lw=2.0)
+plt.plot(obstacle_px,obstacle_pz,'r',lw=2.0)
 plt.legend(('original end effector','post end effector','obstacle'))
 plt.xlabel('px/m')
 plt.ylabel('pz/m')
