@@ -1377,3 +1377,117 @@ def stand_gait_phase(_g_l):
 
     return g_l_new
 
+def ReadDataFromText(file_path):
+    """load joint angle from text file
+
+    Args:
+        file_path (_type_): _description_
+
+    Returns:
+        joint angle and time series data
+    """
+    txt_file = open(file_path, 'r')
+    # read data starting from the third line
+    lines = txt_file.readlines()[2:]
+    st_hip_list = []
+    st_knee_list = []
+    sw_hip_list = []
+    sw_knee_list = []
+    for l in lines:
+        str = l.replace('\n', '').split(",")
+        st_hip_list.append(float(str[0]))
+        sw_hip_list.append(float(str[1]))
+        st_knee_list.append(float(str[2]))
+        sw_knee_list.append(float(str[3]))
+        
+    st_hip = np.array(st_hip_list)
+    sw_hip = np.array(sw_hip_list)
+    st_knee = np.array(st_knee_list)
+    sw_knee = np.array(sw_knee_list)
+    
+    times = np.arange(0, st_hip.shape[0])*0.001
+    
+    txt_file.close()
+    
+    return st_hip, sw_hip, st_knee, sw_knee, times
+
+def ReadDataFromCSV(file_path):
+    """Read data from MoCop csv file
+
+    Args:
+        file_path (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    # Load gait data (consist of two steps)
+    data = load_gait_data(file_path)
+    # Seperate a full gait by heel strike.
+    idx = np.squeeze(np.argwhere(data["l_hs"] == True))
+    left_swing_data = slice_gait_phase(data, 0, idx + 1)
+    right_swing_data = slice_gait_phase(data, idx + 1, len(data["l_hs"]) + 1)
+
+    left_swing_traj = { 
+        "xf_r": left_swing_data["r_ankle_global_x"],
+        "xf_l": left_swing_data["l_ankle_global_x"],
+        "zf_r": left_swing_data["r_ankle_global_z"],
+        "zf_l": left_swing_data["l_ankle_global_z"],
+    }
+
+    right_swing_traj = { 
+        "xf_r": right_swing_data["r_ankle_global_x"],
+        "xf_l": right_swing_data["l_ankle_global_x"],
+        "zf_r": right_swing_data["r_ankle_global_z"],
+        "zf_l": right_swing_data["l_ankle_global_z"],
+    }
+    left_swing_time = left_swing_data["time"]
+    right_swing_time = right_swing_data["time"] - right_swing_data["time"][0] #reset to start from 0
+
+    #Get the hip, knee and ankle position in local coord (zero at hip)
+    right_ankle_left_swing = np.array([left_swing_data["r_ankle_local_x"], left_swing_data["r_ankle_local_y"], left_swing_data["r_ankle_local_z"]])
+    left_ankle_left_swing = np.array([left_swing_data["l_ankle_local_x"], left_swing_data["l_ankle_local_y"], left_swing_data["l_ankle_local_z"]])
+    right_knee_left_swing = np.array([left_swing_data["r_knee_local_x"], left_swing_data["r_knee_local_y"], left_swing_data["r_knee_local_z"]])
+    left_knee_left_swing = np.array([left_swing_data["l_knee_local_x"], left_swing_data["l_knee_local_y"], left_swing_data["l_knee_local_z"]])
+    right_hip_left_swing = np.array([left_swing_data["r_hip_local_x"], left_swing_data["r_hip_local_y"], left_swing_data["r_hip_local_z"]])
+    left_hip_left_swing = np.array([left_swing_data["l_hip_local_x"], left_swing_data["l_hip_local_y"], left_swing_data["l_hip_local_z"]])
+    right_ankle_right_swing = np.array([right_swing_data["r_ankle_local_x"], right_swing_data["r_ankle_local_y"], right_swing_data["r_ankle_local_z"]])
+    left_ankle_right_swing = np.array([right_swing_data["l_ankle_local_x"], right_swing_data["l_ankle_local_y"], right_swing_data["l_ankle_local_z"]])
+    right_knee_right_swing = np.array([right_swing_data["r_knee_local_x"], right_swing_data["r_knee_local_y"], right_swing_data["r_knee_local_z"]])
+    left_knee_right_swing = np.array([right_swing_data["l_knee_local_x"], right_swing_data["l_knee_local_y"], right_swing_data["l_knee_local_z"]])
+    right_hip_right_swing = np.array([right_swing_data["r_hip_local_x"], right_swing_data["r_hip_local_y"], right_swing_data["r_hip_local_z"]])
+    left_hip_right_swing = np.array([right_swing_data["l_hip_local_x"], right_swing_data["l_hip_local_y"], right_swing_data["l_hip_local_z"]])
+
+    #Plot the knees and ankles path
+    f, axs = plt.subplots(2,2)
+    axs[0][0].plot(right_knee_left_swing[0], right_knee_left_swing[2], label='Right knee left swing')
+    axs[0][0].plot(left_knee_left_swing[0], left_knee_left_swing[2], label='Left knee left swing')
+    axs[1][0].plot(right_ankle_left_swing[0], right_ankle_left_swing[2], label='Right ankle left swing')
+    axs[1][0].plot(left_ankle_left_swing[0], left_ankle_left_swing[2], label='Left ankle left swing')
+    axs[0][1].plot(right_knee_right_swing[0], right_knee_right_swing[2], label='Right knee right swing')
+    axs[0][1].plot(left_knee_right_swing[0], left_knee_right_swing[2], label='Left knee right swing')
+    axs[1][1].plot(right_ankle_right_swing[0], right_ankle_right_swing[2], label='Right ankle right swing')
+    axs[1][1].plot(left_ankle_right_swing[0], left_ankle_right_swing[2], label='Left ankle right swing')
+    for i in range(2):
+        for j in range(2):
+            axs[i][j].legend()
+            
+    ''' Find joint angles '''
+    left_thigh_left_swing = np.array(left_knee_left_swing - left_hip_left_swing).T
+    right_thigh_left_swing = np.array(right_knee_left_swing - right_hip_left_swing).T
+    left_thigh_right_swing = np.array(left_knee_right_swing - left_hip_right_swing).T
+    right_thigh_right_swing = np.array(right_knee_right_swing - right_hip_right_swing).T
+    left_shank_left_swing = np.array(left_ankle_left_swing - left_knee_left_swing).T
+    right_shank_left_swing = np.array(right_ankle_left_swing - right_knee_left_swing).T
+    left_shank_right_swing = np.array(left_ankle_right_swing - left_knee_right_swing).T
+    right_shank_right_swing = np.array(right_ankle_right_swing - right_knee_right_swing).T
+    left_hip_angle_left_swing = np.arctan2(left_thigh_left_swing[:, 0], -left_thigh_left_swing[:, 2]) * 180 / np.pi 
+    right_hip_angle_left_swing = np.arctan2(right_thigh_left_swing[:, 0], -right_thigh_left_swing[:, 2]) * 180 / np.pi
+    left_hip_angle_right_swing = np.arctan2(left_thigh_right_swing[:, 0], -left_thigh_right_swing[:, 2]) * 180 / np.pi
+    right_hip_angle_right_swing = np.arctan2(right_thigh_right_swing[:, 0], -right_thigh_right_swing[:, 2]) * 180 / np.pi
+    left_knee_angle_left_swing = -(np.arctan2(left_shank_left_swing[:, 0], -left_shank_left_swing[:, 2]) * 180 / np.pi - left_hip_angle_left_swing)
+    right_knee_angle_left_swing = -(np.arctan2(right_shank_left_swing[:, 0], -right_shank_left_swing[:, 2]) * 180 / np.pi - right_hip_angle_left_swing)
+    left_knee_angle_right_swing = -(np.arctan2(left_shank_right_swing[:, 0], -left_shank_right_swing[:, 2]) * 180 / np.pi - left_hip_angle_right_swing)
+    right_knee_angle_right_swing = -(np.arctan2(right_shank_right_swing[:, 0], -right_shank_right_swing[:, 2]) * 180 / np.pi - right_hip_angle_right_swing)
+
+    return right_hip_angle_left_swing,left_hip_angle_left_swing,right_knee_angle_left_swing,left_knee_angle_left_swing,left_swing_time
+    

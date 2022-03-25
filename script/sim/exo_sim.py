@@ -9,7 +9,7 @@ from utils import Kinematics, InverseKinematics
 class EXO_SIM:
     """
     """
-    def __init__(self,obs_d,obs_h,obs_w,thigh=0.44,shank=0.565):
+    def __init__(self,obs_d=0.1,obs_h=0.1,obs_w=0.1,thigh=0.44,shank=0.565):
         """initial exo parameters
 
         Args:
@@ -107,7 +107,7 @@ class EXO_SIM:
             plt.legend(('stance leg','swing leg','swing foot traj','slope'))
 
         plt.xlim([-1.0, 1.2])
-        plt.ylim([-0.05, 1.2])
+        plt.ylim([-0.25, 1.2])
         
         plt.ioff()
         plt.pause(0.000001)

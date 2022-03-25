@@ -74,3 +74,37 @@ def InverseKinematics(pts,thigh_length,shank_length):
         knee[i] = (belt1 + belt2) * 180.0 / np.pi
 
     return hip, knee
+
+def CorrectHipForStepLength(angle,thigh,shank):
+    """correct front and back leg hip angle because the twp angle is not in the same Pz
+
+    Args:
+        angle (_type_): back hip, front hip, back knee, front knee
+        thigh (_type_): _description_
+        shank (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    s3_hip = angle[0]
+    s4_hip = angle[1]
+    s3_knee = angle[2]
+    s4_knee = angle[3]
+    
+    s3_px,s3_pz = Kinematics(s3_hip,s3_knee,thigh,shank)
+    s3 = np.sqrt(s3_px**2 + s3_pz**2)
+    
+    s4_px,s4_pz = Kinematics(s4_hip,s4_knee,thigh,shank)
+    s4 = np.sqrt(s4_px**2 + s4_pz**2)
+    
+    step_len = np.sqrt((s3_px-s4_px)**2 + (s3_pz-s4_pz)**2)
+    s2 = (step_len**2 + s4**2 - s3**2) / 2 / step_len
+    s1 = step_len - s2
+    
+    theta1 = np.arccos((shank**2 - thigh**2 - s3**2) / (-2*thigh*s3))
+    theta2 = np.arccos((shank**2 - thigh**2 - s4**2) / (-2*thigh*s4))
+    
+    back_hip = (theta1 - np.arcsin(s1/s3)) * 180 / np.pi
+    front_hip = (theta2 + np.arcsin(s2/s4)) * 180 / np.pi
+    
+    return back_hip, front_hip
