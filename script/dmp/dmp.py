@@ -211,15 +211,14 @@ class DMP:
         # efficiently calculate BF weights using weighted linear regression
         self.w = np.zeros((self.n_dmps, self.n_bfs))
         for d in range(self.n_dmps):
-            # spatial scaling term
-            k = self.goal[d] - self.y0[d]
+            # spatial scaling term, set the scaling as 1.0 rahter self.goal[d] - self.y0[d]
+            k = 1.0
             for b in range(self.n_bfs):
                 numer = np.sum(x_track * psi_track[:, b] * f_target[:, d])
                 denom = np.sum(x_track ** 2 * psi_track[:, b])
                 self.w[d, b] = numer / denom
                 if abs(k) > 1e-5:
-                    self.w[d, b] /= 1.0
-                    # self.w[d, b] /= k
+                    self.w[d, b] /= k
 
         self.w = np.nan_to_num(self.w)
 
@@ -257,16 +256,17 @@ class DMP:
                 self.by[d] * (self.goal[d] - y_des[d]) - dy_des[d]
             )
 
-        y_temp = np.zeros_like(y_des)
-        dy_temp = np.zeros_like(dy_des)
-        ddy_temp = np.zeros_like(ddy_des)
-        y_temp[:, 0] = y_des[:, 0]
-        dy_temp[:, 0] = dy_des[:, 0]
-        for d in range(self.n_dmps):
-            for i in range(1, y_des.shape[1]):
-                ddy_temp[d, i-1] = self.ay[d] * (self.by[d] * (self.goal[d] - y_temp[d, i-1]) - dy_temp[d, i-1]) + f_target[i, d]
-                dy_temp[d, i] = dy_temp[d, i-1] + ddy_temp[d, i-1] * self.dt
-                y_temp[d, i] = y_temp[d, i-1] + dy_temp[d, i-1] * self.dt
+        #'''test target differential'''
+        # y_temp = np.zeros_like(y_des)
+        # dy_temp = np.zeros_like(dy_des)
+        # ddy_temp = np.zeros_like(ddy_des)
+        # y_temp[:, 0] = y_des[:, 0]
+        # dy_temp[:, 0] = dy_des[:, 0]
+        # for d in range(self.n_dmps):
+        #     for i in range(1, y_des.shape[1]):
+        #         ddy_temp[d, i-1] = self.ay[d] * (self.by[d] * (self.goal[d] - y_temp[d, i-1]) - dy_temp[d, i-1]) + f_target[i, d]
+        #         dy_temp[d, i] = dy_temp[d, i-1] + ddy_temp[d, i-1] * self.dt
+        #         y_temp[d, i] = y_temp[d, i-1] + dy_temp[d, i-1] * self.dt
 
         # import matplotlib.pyplot as plt
         # f = plt.figure()
@@ -317,20 +317,21 @@ class DMP:
         if timesteps is None:
             timesteps = int(self.timesteps / tau)
 
-        rollout_time = np.linspace(self.dt, timesteps * self.dt, timesteps)
+        rollout_time = np.linspace(0, timesteps * self.dt, timesteps+1)
 
         goal_temp = deepcopy(self.goal)
         self.goal = goal * self.goal
         offset = self.offset if self.isz else goal * self.offset
 
         # set up tracking vectors
-        y_track = np.zeros((timesteps, self.n_dmps))
+        y_track = np.zeros((timesteps+1, self.n_dmps))
         dy_track = np.zeros((timesteps, self.n_dmps))
         ddy_track = np.zeros((timesteps, self.n_dmps))
-
+        
+        y_track[0] = self.y
         for t in range(timesteps):
             # run and record timestep
-            y_track[t], dy_track[t], ddy_track[t] = self.step(goal, tau, **kwargs)
+            y_track[t+1], dy_track[t], ddy_track[t] = self.step(goal, tau, **kwargs)
 
         self.goal = goal_temp
 
@@ -407,10 +408,10 @@ class DMP:
         
         for d in range(self.n_dmps):
             # generate the forcing term
-            f = self.gen_front_term(x, d) * (np.dot(psi, self.w[d])) / psi_sum * scale[d]
+            f = self.gen_front_term(x, d) * (np.dot(psi, self.w[d])) / psi_sum * scale[d] + extra_force[d]
 
             # DMP acceleration
-            ddy[d] = self.ay[d] * (self.by[d] * (self.goal[d] - y_[d]) - dy_[d]) + f  + extra_force[d]
+            ddy[d] = self.ay[d] * (self.by[d] * (self.goal[d] - y_[d]) - dy_[d]) + f
             dy[d] = dy_[d] + ddy[d] * tau * self.dt
             y[d] = y_[d] + dy[d] * tau * self.dt
 
