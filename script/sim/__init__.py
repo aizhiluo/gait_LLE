@@ -1,1 +1,1 @@
-from .exo_obs import EXO_OBS
+from .exo_sim import EXO_SIM

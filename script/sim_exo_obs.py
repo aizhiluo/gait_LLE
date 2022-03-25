@@ -1,4 +1,4 @@
-from sim import EXO_OBS
+from sim import EXO_SIM
 import numpy as np
 from time import sleep
 import matplotlib.pyplot as plt
@@ -9,10 +9,8 @@ from copy import deepcopy
 from dmp import DMP
 from utils import Kinematics, InverseKinematics, JacobianMatrix
 
-def read_gait_data_txt():
-    path = "D:/MyFolder/code/EXO_ROS/Exoskeleton_WP3/machine_learning/gait/data/"
-    file_name = "SN_all_subj_obstacle_first"
-    file_path = path + file_name + ".txt"
+def read_gait_data_txt(file_path):
+    
     txt_file = open(file_path, 'r')
     lines = txt_file.readlines()[2:]
 
@@ -138,7 +136,10 @@ def RepusiveForceFile(px,pz,obs_d,obs_w,obs_h):
 
 
 # load gait data
-st_hip, st_knee, sw_hip, sw_knee=read_gait_data_txt()
+path = "D:/MyFolder/code/gait_ws/gait_LLE/data/joint_angle/"
+file_name = "SN_subj2" #"SN_all_subj_obstacle_first"
+file_path = path + file_name + ".txt"
+st_hip, st_knee, sw_hip, sw_knee=read_gait_data_txt(file_path)
 st_hip, st_knee, sw_hip, sw_knee=dmp_gait_generation(st_hip, st_knee, sw_hip, sw_knee)
 
 num = st_hip.shape[0]
@@ -151,7 +152,7 @@ obstacle_width = 0.1
 obstacle_height = 0.1
 obstacle_px = np.array([obstacle_dist,obstacle_dist,obstacle_dist+obstacle_width,obstacle_dist+obstacle_width,obstacle_dist])
 obstacle_pz = np.array([0,obstacle_height,obstacle_height,0,0])
-exo = EXO_OBS(obstacle_dist,obstacle_height,obstacle_width,thigh_length,shank_length)
+exo = EXO_SIM(obstacle_dist,obstacle_height,obstacle_width,thigh_length,shank_length)
 
 # first obstacle step with left swing
 lh = st_hip
@@ -175,7 +176,7 @@ updated_sw_h,updated_sw_k = InverseKinematics(np.array([post_sw_px,post_sw_pz]),
 
 # plot one step
 plt.figure()
-exo.plot_one_step(True,lh,lk,updated_sw_h,updated_sw_k)
+exo.plot_one_step(lh,lk,updated_sw_h,updated_sw_k,"levelground")
 plt.show()
 
 plt.figure(2)
