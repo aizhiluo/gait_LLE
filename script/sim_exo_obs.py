@@ -7,7 +7,7 @@ import os
 
 from copy import deepcopy
 from dmp import DMP
-from utils import Kinematics, InverseKinematics, JacobianMatrix
+from utils import CorrectHipForStepLength, JointAngleForRamp, Kinematics, InverseKinematics, JacobianMatrix
 
 def read_gait_data_txt(file_path):
     
@@ -31,34 +31,30 @@ def read_gait_data_txt(file_path):
     sw_hip = np.array(sw_hip_list)
     sw_knee = np.array(sw_knee_list)
     
-    return st_hip, st_knee, sw_hip, sw_knee
-
-def dmp_gait_generation(st_hip,st_knee,sw_hip,sw_knee,time_interval=0.001):
-    y_des = np.array([st_hip, sw_hip, st_knee, sw_knee])
-    y_des_time = np.arange(0, y_des.shape[1])*time_interval
+    return st_hip, sw_hip, st_knee, sw_knee
+   
+def dmp_gait_generation(dmp_gait,num_steps,y0,new_scale=None,goal_offset=None,forces=None):
     
-    # create DMP object
-    ay = np.ones(4) * 50
-    by = ay / 4
-    dmp_gait = DMP(y_des, y_des_time, ay=ay, by=by, n_bfs=250, dt=time_interval, isz=True)
-    _, dmp_time_left_swing = dmp_gait.imitate_path()
-    
-    traj_num = y_des.shape[0]
-    num_steps = y_des.shape[1]
+    traj_num = y0.shape[0]
     track = np.zeros((traj_num, num_steps))
-    dmp_time = np.arange(num_steps) * time_interval
+    
+    tau = (dmp_gait.timesteps+1) / num_steps
+    track_time = np.arange(num_steps) * dmp_gait.dt * tau
     
     # the goal_offset, scale, and initial position for the generated trajectory
-    goal_offset = np.array([0,0,0,0])
-    new_scale = np.ones(num_steps)
-    y = y_des[:,0]
+    if new_scale is None:
+        new_scale = np.ones(traj_num)
+    if goal_offset is None:
+        goal_offset = np.zeros(traj_num)
+    if forces is None:
+        forces = np.zeros((traj_num, num_steps))
+        
+    y = y0
     dy = np.zeros(traj_num)
-    force = np.zeros(traj_num)
-    
      # Generate target trajectory using DMP step by step
     for i in range(num_steps):            
         gait_phase = float(i) / num_steps
-        y, dy, ddy = dmp_gait.step_real(gait_phase, y, dy, scale=new_scale, goal_offset=goal_offset)
+        y, dy, ddy = dmp_gait.step_real(gait_phase,y,dy,scale=new_scale,goal_offset=goal_offset,tau=tau,extra_force=forces[:,i])
         
         # #### online adjust swing leg trajectory based repulsive force with DMP ####
         # # distance between both legs
@@ -78,15 +74,14 @@ def dmp_gait_generation(st_hip,st_knee,sw_hip,sw_knee,time_interval=0.001):
         # y += force
         
         track[:, i] = deepcopy(y)
-        
-    dmp_st_hip = track[0,:]
-    dmp_sw_hip = track[1,:]
-    dmp_st_knee = track[2,:]
-    dmp_sw_knee = track[3,:]
+              
+    # dmp_st_hip = track[0,:]
+    # dmp_sw_hip = track[1,:]
+    # dmp_st_knee = track[2,:]
+    # dmp_sw_knee = track[3,:]
     
-    return dmp_st_hip, dmp_st_knee, dmp_sw_hip, dmp_sw_knee
-    
-    
+    return track, track_time
+      
 def RepusiveForceFile(px,pz,obs_d,obs_w,obs_h):
     # check if input is array
     if type(px) == np.ndarray:
@@ -137,82 +132,192 @@ def RepusiveForceFile(px,pz,obs_d,obs_w,obs_h):
 
 # load gait data
 path = "D:/MyFolder/code/gait_ws/gait_LLE/data/joint_angle/"
-file_name = "SN_subj2" #"SN_all_subj_obstacle_first"
+file_name = "dmp_left_swing" #"SN_all_subj_obstacle_first" #
 file_path = path + file_name + ".txt"
-st_hip, st_knee, sw_hip, sw_knee=read_gait_data_txt(file_path)
-st_hip, st_knee, sw_hip, sw_knee=dmp_gait_generation(st_hip, st_knee, sw_hip, sw_knee)
+raw_st_hip, raw_sw_hip, raw_st_knee, raw_sw_knee=read_gait_data_txt(file_path)
+num = raw_st_hip.shape[0]
 
-num = st_hip.shape[0]
+# create and train DMP module
+y_des = np.array([raw_st_hip, raw_sw_hip, raw_st_knee, raw_sw_knee])
+y_des_time = np.arange(0, y_des.shape[1])*0.001
+dmp_gait = DMP(y_des, y_des_time,n_bfs=250, dt=0.001, isz=True)
+_, _, = dmp_gait.imitate_path()
 
-# initial exo and obstacle
+# create and initial exo simulation models
+terrain_type = "slope"
+slope = 5.0
 thigh_length = 0.44
-shank_length = 0.565
+shank_length = 0.564
 obstacle_dist = 0.15 # assume obstacle locates in x-axis z = 0
 obstacle_width = 0.1
 obstacle_height = 0.1
 obstacle_px = np.array([obstacle_dist,obstacle_dist,obstacle_dist+obstacle_width,obstacle_dist+obstacle_width,obstacle_dist])
 obstacle_pz = np.array([0,obstacle_height,obstacle_height,0,0])
-exo = EXO_SIM(obstacle_dist,obstacle_height,obstacle_width,thigh_length,shank_length)
-
-# first obstacle step with left swing
-lh = st_hip
-lk = st_knee
-rh = sw_hip
-rk = sw_knee
+exo = EXO_SIM(obstacle_dist,obstacle_height,obstacle_width,thigh_length,shank_length,slope=slope)
 exo.update_stace_leg(True)
 
-# relative distance between swing and stance foot
-hip_angle = np.array([st_hip,sw_hip])
-knee_angle = np.array([st_knee,sw_knee])
-foot_px,foot_pz = Kinematics(hip_angle,knee_angle,thigh_length,shank_length)
-px = foot_px[1,:] - foot_px[0,:]
-pz = foot_pz[1,:] - foot_pz[0,:]
 
-# adjust the swing foot position according to the relative distance
-force_x,force_z = RepusiveForceFile(px,pz,obstacle_dist,obstacle_width,obstacle_height)
-post_sw_px = foot_px[1,:] + force_x
-post_sw_pz = foot_pz[1,:] + force_z
-updated_sw_h,updated_sw_k = InverseKinematics(np.array([post_sw_px,post_sw_pz]),thigh_length,shank_length)
+# different terrain simulation
+if terrain_type == "obstacle":
+    # generate gait trajectory for obstacle first step
+    y = y_des[:,0] + [0,0,0,0]
+    new_scale = np.ones(y.shape[0]) + [0,0,0,0]
+    goal_offset = np.zeros(y.shape[0]) + [0,0,0,0]
+    track, track_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
+    
+    # using repulsive force field to adjust swing leg trajectory
+    st_hip=track[0,:]
+    sw_hip=track[1,:]
+    st_knee=track[2,:]
+    sw_knee=track[3,:]
+    _,_,updated_sw_h,updated_sw_k,force_x,force_z = exo.obstacle_crossing_with_force_field(st_hip,st_knee,sw_hip,sw_knee)
+    
+    relative_ankle_px,relative_ankle_pz = exo.relative_ankle_distance(st_hip,st_knee,sw_hip,sw_knee)
+    updated_ankle_px,updated_ankle_pz = exo.relative_ankle_distance(st_hip,st_knee,updated_sw_h,updated_sw_k)
+    
+    # plot raw\updated joint angle, repulsive force, foot trajectory
+    plt.figure(1)
+    plt.subplot(221)
+    plt.plot(sw_hip,'r--')
+    plt.plot(sw_knee,'b--')
+    plt.plot(updated_sw_h,'r')
+    plt.plot(updated_sw_k,'b')
+    plt.legend(('dmp swing hip','dmp swing knee','updated swing hip','updated swing knee'))
+    plt.ylabel('joint angle/deg')
+    
+    plt.subplot(222)
+    plt.plot(raw_st_hip,'r--')
+    plt.plot(raw_st_knee,'b--')
+    plt.plot(st_hip,'r')
+    plt.plot(st_knee,'b')
+    plt.legend(('raw stance hip','raw stance knee','dmp stance hip','dmp stance knee'))
+    plt.ylabel('joint angle/deg')
 
-# plot one step
-plt.figure()
-exo.plot_one_step(lh,lk,updated_sw_h,updated_sw_k,"levelground")
-plt.show()
+    plt.subplot(223)
+    plt.plot(relative_ankle_px,relative_ankle_pz,'b--',lw=2.0) # end effector trajectory
+    plt.plot(updated_ankle_px,updated_ankle_pz,'c-',lw=2.0)
+    plt.plot(obstacle_px,obstacle_pz,'r',lw=2.0)
+    plt.legend(('original end effector','post end effector','obstacle'))
+    plt.xlabel('px/m')
+    plt.ylabel('pz/m')
+    
+    plt.subplot(224)
+    plt.plot(force_x)
+    plt.plot(force_z)
+    plt.legend(('$\Delta$x','$\Delta$z'))
+    plt.ylabel('adjustment/m')
+    
+    
+    # plot EXO simulation animation
+    plt.figure(2)
+    exo.plot_one_step(st_hip,st_knee,updated_sw_h,updated_sw_k,terrain_type)
+    plt.show()
+elif terrain_type == "slope":
+    y = y_des[:,0] + [-10,20,0,0]
+    new_scale = np.ones(y.shape[0]) + [0,0,0,0]
+    goal_offset = np.zeros(y.shape[0]) + [0,0,0,0]
+    
+    # Adjust the ending joint angle for ramp walking
+    step_length = 0.6
+    target_angle = JointAngleForRamp(y_des[:,-1],thigh_length,shank_length,slope,step_length)
+    goal_offset = target_angle - y_des[:,-1]
 
-plt.figure(2)
+    # Hip dmp unit needs the extral scale to correct the affect from the goal offset
+    new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-y[0])
+    new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-y[1])
+    new_scale[3] = 1.0 - target_angle[3] / 65.0
+    
+    # test the affect of goal_offset to scaling
+    # goal_offset[2] = 10
+    # new_scale[2] = 1.0 - goal_offset[2] / 15.0
+    
+    track,track_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
+    
+    st_hip=track[0,:]
+    sw_hip=track[1,:]
+    st_knee=track[2,:]
+    sw_knee=track[3,:]
+    
+    f, axs = plt.subplots(2,2)
+    axs[0][0].plot(y_des_time, raw_st_hip, label='raw st_hip')
+    axs[0][0].plot(track_time, st_hip, label='dmp st_hip')
+    axs[1][0].plot(y_des_time, raw_st_knee, label='raw st_knee')
+    axs[1][0].plot(track_time, st_knee, label='dmp st_knee')
 
-plt.subplot(221)
-plt.plot(hip_angle[1,:],'r--')
-plt.plot(knee_angle[1,:],'b--')
-plt.plot(updated_sw_h,'r')
-plt.plot(updated_sw_k,'b')
-plt.legend(('swing hip','swing knee','post swing hip','post swing knee'))
-plt.ylabel('joint angle/deg')
+    axs[0][1].plot(y_des_time, raw_sw_hip, label='raw sw_hip')
+    axs[0][1].plot(track_time, sw_hip, label='dmp sw_hip')
+    axs[1][1].plot(y_des_time, raw_sw_knee, label='raw sw_knee')
+    axs[1][1].plot(track_time, sw_knee, label='dmp sw_knee')
+    for ax in axs:
+        for a in ax:
+            a.legend()
+    
+    # plot one step
+    lh = st_hip
+    lk = st_knee
+    rh = sw_hip
+    rk = sw_knee
+    plt.figure(2)
+    exo.plot_one_step(lh,lk,rh,rk,terrain_type)
+    plt.show()
+    
+else:
+    y = y_des[:,0] + [0,0,0,0]
+    new_scale = np.ones(y.shape[0]) + [0,0,0,0]
+    goal_offset = np.zeros(y.shape[0]) + [0,0,0,0]
+    
+    # For leve ground walking, it it to adjust the ending position of swing and stance hip joint for step length adjustment
+    step_length = 0.6
+    tmp_st_hip, tmp_sw_hip = CorrectHipForStepLength(y_des[:,-1],thigh_length,shank_length,step_length)
+    goal_offset[0] = tmp_st_hip - y_des[0,-1]
+    goal_offset[1] = tmp_sw_hip - y_des[1,-1]
+    
+    # Hip dmp unit needs the extral scale to correct the affect from the goal offset
+    new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-y[0])
+    new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-y[1])
+    # new_scale = (dmp_gait.goal+goal_offset-y)/(dmp_gait.goal-y)
+    
+    track,track_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
 
-plt.subplot(222)
-plt.plot(force_x)
-plt.plot(force_z)
-plt.legend(('$\Delta$x','$\Delta$z'))
-plt.ylabel('adjustment/m')
+    # Plot original and updated trajectories
+    st_hip=track[0,:]
+    sw_hip=track[1,:]
+    st_knee=track[2,:]
+    sw_knee=track[3,:]
+    
+    f, axs = plt.subplots(2,2)
+    axs[0][0].plot(y_des_time, raw_st_hip, label='raw st_hip')
+    axs[0][0].plot(track_time, st_hip, label='dmp st_hip')
+    axs[1][0].plot(y_des_time, raw_st_knee, label='raw st_knee')
+    axs[1][0].plot(track_time, st_knee, label='dmp st_knee')
 
-plt.subplot(223)
-plt.plot(px,pz,'b--',lw=2.0) # end effector trajectory
-plt.plot(post_sw_px-foot_px[0,:],post_sw_pz-foot_pz[0,:],'c-',lw=2.0)
-plt.plot(obstacle_px,obstacle_pz,'r',lw=2.0)
-plt.legend(('original end effector','post end effector','obstacle'))
-plt.xlabel('px/m')
-plt.ylabel('pz/m')
+    axs[0][1].plot(y_des_time, raw_sw_hip, label='raw sw_hip')
+    axs[0][1].plot(track_time, sw_hip, label='dmp sw_hip')
+    axs[1][1].plot(y_des_time, raw_sw_knee, label='raw sw_knee')
+    axs[1][1].plot(track_time, sw_knee, label='dmp sw_knee')
+    for ax in axs:
+        for a in ax:
+            a.legend()
+    
+    lh = st_hip
+    lk = st_knee
+    rh = sw_hip
+    rk = sw_knee
+    # # plot one step
+    # plt.figure(2)
+    # exo.plot_one_step(lh,lk,rh,rk,"levelground")
+    plt.show()
+    
 
-plt.show()
 
 # # save to gif
-# num = st_hip.shape[0]
-# plt.figure()
+# exo.reset()
+# plt.figure(3)
 # filename = 'fig.png'
 # with imageio.get_writer('raw_gait.gif', mode='I') as writer:
 #     for i in range(num//5):
 #         j = i * 5
-#         exo.plot_exo(True,lh[j],lk[j],rh[j],rk[j])
+#         exo.plot_exo(lh[j],lk[j],rh[j],rk[j],"obstacle")
         
 #         plt.savefig(filename)
 #         plt.close

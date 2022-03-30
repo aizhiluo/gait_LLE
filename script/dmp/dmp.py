@@ -65,7 +65,7 @@ class DMP:
     as described in Dr. Stefan Schaal's (2002) paper.
     """
 
-    def __init__(self, path, time, ay, by, dt: float = 0.001, n_bfs=500, isz=False):
+    def __init__(self, path, time, ay=None, by=None, dt: float = 0.001, n_bfs=500, isz=False):
         """
         path, Ideal trajectory, n_dmps X T
         time, T
@@ -104,7 +104,7 @@ class DMP:
         self.y0 = np.zeros(self.n_dmps)
         self.y0 = np.copy(self.path[:, 0])
 
-        self.ay = np.ones(self.n_dmps) * 25.0 if ay is None else ay  # Schaal 2012
+        self.ay = np.ones(self.n_dmps) * 50.0 if ay is None else ay  # Schaal 2012
         self.by = self.ay / 4.0 if by is None else by  # Schaal 2012
         assert self.ay.size == self.path.shape[0] == self.by.size
 
@@ -375,7 +375,7 @@ class DMP:
 
         return self.y, self.dy, self.ddy
 
-    def step_real(self, gait_phase, y_, dy_, scale=1.0, goal_offset=0.0, tau=1.0, extra_force=0.0):
+    def step_real(self, gait_phase, y_, dy_, scale=1.0, goal_offset=0.0, tau=1.0, extra_force=None):
         """Run one step for real cases.
 
             Args:
@@ -403,7 +403,7 @@ class DMP:
         psi_sum = np.sum(psi)
         
         # if no provided exteral force 
-        if type(extra_force) is not np.ndarray:
+        if extra_force is None:
             extra_force = np.zeros(self.n_dmps)
         
         for d in range(self.n_dmps):

@@ -14,10 +14,10 @@ import sys
 
 
 is_data_from_mocop = False
-is_correct_hip = True
-is_save_trajectory = True
+is_correct_hip = False
+is_save_file = False
 path = "D:/MyFolder/code/gait_ws/gait_LLE/data"
-load_file_name = "DMP_left_swing" #"SN002_0028_10m_01.csv"
+load_file_name = "SN_all_subj_obstacle_first" #"DMP_left_swing" #"SN002_0028_10m_01.csv" #  #
 saved_file_name = "left_swing_1"
 
 # load data
@@ -34,11 +34,12 @@ y_des_time = times
 
 ay = np.ones(4) * 50
 by = ay / 4
-dmp_gait = DMP(y_des, y_des_time, ay=ay, by=by, n_bfs=150, dt=0.001, isz=True)
+dmp_gait = DMP(y_des, y_des_time, n_bfs=200, dt=0.001, isz=True)
 _, _, = dmp_gait.imitate_path()
 
 # Saving DMP parameters
-dmp_gait.save_para(path + "/dmp_para/" + saved_file_name)
+if is_save_file is True:
+    dmp_gait.save_para(path + "/dmp_para/" + saved_file_name)
 
 # DMP fitting results and plotting
 goal, tau = 1.0, 1.0
@@ -49,8 +50,8 @@ plt.subplot(121)
 plt.title("DMP Fitting Stance leg")
 plt.xlabel("Time (sec)")
 plt.ylabel("Degree")
-plt.plot(y_des_time, st_hip, lw=5, label="ideal stance hip")
-plt.plot(y_des_time, st_knee, lw=5, label="ideal stance knee")
+plt.plot(y_des_time, st_hip, lw=3, label="ideal stance hip")
+plt.plot(y_des_time, st_knee, lw=3, label="ideal stance knee")
 plt.plot(dmp_time, y_track[:, 0], lw=1, label="dmp stance hip")
 plt.plot(dmp_time, y_track[:, 2], lw=1, label="dmp stance knee")
 plt.legend()
@@ -58,8 +59,8 @@ plt.subplot(122)
 plt.title("DMP Fitting Swing leg")
 plt.xlabel("Time (sec)")
 plt.ylabel("Degree")
-plt.plot(y_des_time, sw_hip, lw=5, label="ideal swing hip")
-plt.plot(y_des_time, sw_knee, lw=5, label="ideal swing knee")
+plt.plot(y_des_time, sw_hip, lw=3, label="ideal swing hip")
+plt.plot(y_des_time, sw_knee, lw=3, label="ideal swing knee")
 plt.plot(dmp_time, y_track[:, 1], lw=1, label="dmp swing hip")
 plt.plot(dmp_time, y_track[:, 3], lw=1, label="dmp swing knee")
 plt.legend()
@@ -67,14 +68,14 @@ plt.legend()
 ########  Test DMP with different y0, scale, goal_offset   #############
 traj_num = y_des.shape[0]
 num_steps = 500
-tau = dmp_gait.timesteps / num_steps
+tau = (dmp_gait.timesteps+1) / num_steps
 
 track = np.zeros((traj_num, num_steps))
 track_time = np.arange(num_steps) * dmp_gait.dt * tau
 
 # the goal_offset, scale, and initial position for the generated trajectory
 goal_offset = np.array([0,0,0,0])
-new_scale = np.ones(num_steps)
+new_scale = np.ones(traj_num)
 y = y_des[:,0] + [0,0,0,0]
 dy = np.zeros(traj_num)
 ddy = np.zeros(traj_num)
@@ -92,7 +93,7 @@ if is_correct_hip is True:
 # Generate target trajectory using DMP step by step
 for i in range(num_steps):
     gait_phase = float(i) / num_steps
-    y, dy, ddy = dmp_gait.step_real(gait_phase, y, dy, scale=new_scale, goal_offset=goal_offset, tau=tau, extra_force=0.0)
+    y, dy, ddy = dmp_gait.step_real(gait_phase, y, dy, scale=new_scale, goal_offset=goal_offset, tau=tau)
     track[:, i] = deepcopy(y)
 
 dmp_st_hip = track[0,:]
@@ -118,7 +119,7 @@ for ax in axs:
 plt.show()
 
 # Save the trajectories in text files
-if is_save_trajectory is True:
+if is_save_file is True:
     with open(path + "/joint_angle/dmp_" + saved_file_name + ".txt", mode="w", newline="") as data_file:
         writer = csv.writer(data_file, delimiter=",")
         data_file.write(f"#size: {track.shape[1]} 4\n")
