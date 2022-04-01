@@ -147,7 +147,7 @@ _, _, = dmp_gait.imitate_path()
 terrain_type = "slope"
 slope = 5.0
 thigh_length = 0.44
-shank_length = 0.564
+shank_length = 0.565
 obstacle_dist = 0.15 # assume obstacle locates in x-axis z = 0
 obstacle_width = 0.1
 obstacle_height = 0.1
@@ -213,31 +213,38 @@ if terrain_type == "obstacle":
     exo.plot_one_step(st_hip,st_knee,updated_sw_h,updated_sw_k,terrain_type)
     plt.show()
 elif terrain_type == "slope":
-    y = y_des[:,0] + [-10,20,0,0]
+    
+    step_length = 0.6
+    # first step
+    y = y_des[:,0] + [10,10,30,0]
     new_scale = np.ones(y.shape[0]) + [0,0,0,0]
     goal_offset = np.zeros(y.shape[0]) + [0,0,0,0]
     
     # Adjust the ending joint angle for ramp walking
-    step_length = 0.6
     target_angle = JointAngleForRamp(y_des[:,-1],thigh_length,shank_length,slope,step_length)
     goal_offset = target_angle - y_des[:,-1]
 
     # Hip dmp unit needs the extral scale to correct the affect from the goal offset
-    new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-y[0])
-    new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-y[1])
+    new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-dmp_gait.y0[0])
+    new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])
     new_scale[3] = 1.0 - target_angle[3] / 65.0
-    
-    # test the affect of goal_offset to scaling
-    # goal_offset[2] = 10
-    # new_scale[2] = 1.0 - goal_offset[2] / 15.0
-    
     track,track_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
     
+    # second step
+    y = np.array([track[1,-1],track[0,-1],track[3,-1],track[2,-1]])
+    target_angle = JointAngleForRamp(y_des[:,-1],thigh_length,shank_length,slope,step_length)
+    goal_offset = target_angle - y_des[:,-1]
+    new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-dmp_gait.y0[0])
+    new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])
+    new_scale[3] = 1.0 - target_angle[3] / 65.0
+    track2,track2_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
+    
+    
+    # plot first step in slope
     st_hip=track[0,:]
     sw_hip=track[1,:]
     st_knee=track[2,:]
     sw_knee=track[3,:]
-    
     f, axs = plt.subplots(2,2)
     axs[0][0].plot(y_des_time, raw_st_hip, label='raw st_hip')
     axs[0][0].plot(track_time, st_hip, label='dmp st_hip')
@@ -251,16 +258,72 @@ elif terrain_type == "slope":
     for ax in axs:
         for a in ax:
             a.legend()
+            
+    # plot second step in slope
+    st_hip=track2[0,:]
+    sw_hip=track2[1,:]
+    st_knee=track2[2,:]
+    sw_knee=track2[3,:]
+    f1, axs1 = plt.subplots(2,2)
+    axs1[0][0].plot(y_des_time, raw_st_hip, label='raw st_hip')
+    axs1[0][0].plot(track2_time, st_hip, label='dmp st_hip')
+    axs1[1][0].plot(y_des_time, raw_st_knee, label='raw st_knee')
+    axs1[1][0].plot(track2_time, st_knee, label='dmp st_knee')
+
+    axs1[0][1].plot(y_des_time, raw_sw_hip, label='raw sw_hip')
+    axs1[0][1].plot(track2_time, sw_hip, label='dmp sw_hip')
+    axs1[1][1].plot(y_des_time, raw_sw_knee, label='raw sw_knee')
+    axs1[1][1].plot(track2_time, sw_knee, label='dmp sw_knee')
+    for ax in axs1:
+        for a in ax:
+            a.legend()
     
-    # plot one step
-    lh = st_hip
-    lk = st_knee
-    rh = sw_hip
-    rk = sw_knee
-    plt.figure(2)
-    exo.plot_one_step(lh,lk,rh,rk,terrain_type)
-    plt.show()
     
+    # plot EXO simulation animation
+    # plt.figure(3)
+    # lh = track[0,:]
+    # lk = track[2,:]
+    # rh = track[1,:]
+    # rk = track[3,:]
+    # exo.plot_one_step(lh,lk,rh,rk,terrain_type)
+    
+    # lh = track2[1,:]
+    # lk = track2[3,:]
+    # rh = track2[0,:]
+    # rk = track2[2,:]
+    # exo.update_stace_leg(False)
+    # exo.plot_one_step(lh,lk,rh,rk,terrain_type)
+    # plt.show()
+    
+    # save to gif
+    plt.figure(3)
+    filename = 'fig.png'
+    with imageio.get_writer('slope_walking.gif', mode='I') as writer:
+        lh = track[0,:]
+        lk = track[2,:]
+        rh = track[1,:]
+        rk = track[3,:]
+        for i in range(num//5):
+            j = i * 5
+            exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
+            plt.savefig(filename)
+            plt.close
+            image = imageio.imread(filename)
+            writer.append_data(image)
+        lh = track2[1,:]
+        lk = track2[3,:]
+        rh = track2[0,:]
+        rk = track2[2,:]
+        exo.update_stace_leg(False)
+        for i in range(num//5):
+            j = i * 5
+            exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
+            plt.savefig(filename)
+            plt.close
+            image = imageio.imread(filename)
+            writer.append_data(image)
+    os.remove(filename)       
+    plt.show()   
 else:
     y = y_des[:,0] + [0,0,0,0]
     new_scale = np.ones(y.shape[0]) + [0,0,0,0]
@@ -273,11 +336,18 @@ else:
     goal_offset[1] = tmp_sw_hip - y_des[1,-1]
     
     # Hip dmp unit needs the extral scale to correct the affect from the goal offset
-    new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-y[0])
-    new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-y[1])
-    # new_scale = (dmp_gait.goal+goal_offset-y)/(dmp_gait.goal-y)
-    
+    new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-dmp_gait.y0[0])
+    new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])    
     track,track_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
+    
+    # second step
+    y = np.array([track[1,-1],track[0,-1],track[3,-1],track[2,-1]])
+    tmp_st_hip, tmp_sw_hip = CorrectHipForStepLength(y_des[:,-1],thigh_length,shank_length,step_length)
+    goal_offset[0] = tmp_st_hip - y_des[0,-1]
+    goal_offset[1] = tmp_sw_hip - y_des[1,-1]
+    new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-dmp_gait.y0[0])
+    new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])
+    track2,track2_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
 
     # Plot original and updated trajectories
     st_hip=track[0,:]
@@ -299,13 +369,50 @@ else:
         for a in ax:
             a.legend()
     
-    lh = st_hip
-    lk = st_knee
-    rh = sw_hip
-    rk = sw_knee
     # # plot one step
     # plt.figure(2)
-    # exo.plot_one_step(lh,lk,rh,rk,"levelground")
+    # lh = track[0,:]
+    # lk = track[2,:]
+    # rh = track[1,:]
+    # rk = track[3,:]
+    # exo.plot_one_step(lh,lk,rh,rk,terrain_type)
+    
+    # lh = track2[1,:]
+    # lk = track2[3,:]
+    # rh = track2[0,:]
+    # rk = track2[2,:]
+    # exo.update_stace_leg(False)
+    # exo.plot_one_step(lh,lk,rh,rk,terrain_type)
+    # plt.show()
+    
+    # save to gif
+    plt.figure(3)
+    filename = 'fig.png'
+    with imageio.get_writer('levelground_walking.gif', mode='I') as writer:
+        lh = track[0,:]
+        lk = track[2,:]
+        rh = track[1,:]
+        rk = track[3,:]
+        for i in range(num//5):
+            j = i * 5
+            exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
+            plt.savefig(filename)
+            plt.close
+            image = imageio.imread(filename)
+            writer.append_data(image)
+        lh = track2[1,:]
+        lk = track2[3,:]
+        rh = track2[0,:]
+        rk = track2[2,:]
+        exo.update_stace_leg(False)
+        for i in range(num//5):
+            j = i * 5
+            exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
+            plt.savefig(filename)
+            plt.close
+            image = imageio.imread(filename)
+            writer.append_data(image)
+    os.remove(filename)       
     plt.show()
     
 

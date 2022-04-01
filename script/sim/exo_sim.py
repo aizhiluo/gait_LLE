@@ -71,8 +71,11 @@ class EXO_SIM:
         r_ankle_px, r_ankle_pz = Kinematics(self.rh,self.rk,self.thigh,self.shank)
         
         if self.last_step_is_left != is_left_stance:
-            self.ankle_offset_px += abs(l_ankle_px-r_ankle_px)
-            self.ankle_offset_pz += abs(l_ankle_pz-r_ankle_pz)
+            self.ankle_offset_px += r_ankle_px-l_ankle_px
+            self.ankle_offset_pz += r_ankle_pz-l_ankle_pz
+        else:
+            self.ankle_offset_px += l_ankle_px-r_ankle_px
+            self.ankle_offset_pz += l_ankle_pz-r_ankle_pz
 
         self.last_step_is_left = is_left_stance
         
@@ -194,17 +197,17 @@ class EXO_SIM:
         
         if plot_mode == "levelground":
             self.plot_level_walking()
-            plt.legend(('stance leg','swing leg','swing foot traj'))
+            plt.legend(('left leg','right leg','swing foot traj'))
         elif plot_mode ==  "obstacle":
             self.plot_level_walking()
             self.plot_obstacle()
-            plt.legend(('stance leg','swing leg','swing foot traj','obstacle'))
+            plt.legend(('left leg','right leg','swing foot traj','obstacle'))
         elif plot_mode ==  "slope": 
             self.plot_level_walking()
             self.plot_slope()
-            plt.legend(('stance leg','swing leg','swing foot traj','slope'))
+            plt.legend(('left leg','right leg','swing foot traj','slope'))
 
-        plt.xlim([-1.0, 1.2])
+        plt.xlim([-1.0, 1.4])
         plt.ylim([-0.25, 1.2])
         
         plt.ioff()
@@ -216,7 +219,7 @@ class EXO_SIM:
         r_foot_px, r_foot_pz = Kinematics(self.rh,self.rk,self.thigh,self.shank)
         # transfer the joint position in the hip coordinate to the world coordinate
         if self.last_step_is_left:
-            l_ankle_z = 0
+            l_ankle_z = self.ankle_offset_pz
             l_ankle_x = self.ankle_offset_px
             hip_z = l_ankle_z - l_foot_pz
             hip_x = l_ankle_x - l_foot_px
@@ -231,7 +234,7 @@ class EXO_SIM:
             # add trajectory point to plot
             self.traj.append([r_ankle_x,r_ankle_z])
         else:
-            r_ankle_z = 0
+            r_ankle_z = self.ankle_offset_pz
             r_ankle_x = self.ankle_offset_px
             hip_z = r_ankle_z - r_foot_pz
             hip_x = r_ankle_x - r_foot_px
@@ -267,7 +270,7 @@ class EXO_SIM:
         plt.plot(obstacle_px,obstacle_pz,'r',lw=3.0)
         
     def plot_slope(self):
-        m = 120
+        m = 140
         ramp_px = np.arange(m)*0.01
         ramp_pz = ramp_px * np.tanh(self.slope / 180 * np.pi)
         ramp_px[m-2] = ramp_px[m-3]
