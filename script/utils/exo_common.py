@@ -153,11 +153,18 @@ def JointAngleForRamp(angle,thigh,shank,slope,step_length=None):
         pz = pz + delta_pz
         post_sw_h,post_sw_k = InverseKinematics(np.array([px,pz]),thigh,shank)
         post_st_k = st_k
+        
     else:
-        px,pz = Kinematics(np.array([post_st_h,st_k]),thigh,shank)
-        px = px + delta_px
-        pz = pz + delta_pz
-        post_st_h,post_st_k = InverseKinematics(np.array([px,pz]),thigh,shank)
+        # px,pz = Kinematics(post_st_h,st_k,thigh,shank)
+        # px = px + delta_px
+        # pz = pz - delta_pz
+        # post_st_h,post_st_k = InverseKinematics(np.array([px,pz]),thigh,shank)
+        # post_sw_k = sw_k
+        
+        # rotate whole body
+        post_st_h = post_st_h + slope
+        post_sw_h = post_sw_h + slope
+        post_st_k = st_k
         post_sw_k = sw_k
         
     return np.array([post_st_h,post_sw_h,post_st_k,post_sw_k])

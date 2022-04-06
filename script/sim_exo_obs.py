@@ -330,14 +330,15 @@ else:
     goal_offset = np.zeros(y.shape[0]) + [0,0,0,0]
     
     # For leve ground walking, it it to adjust the ending position of swing and stance hip joint for step length adjustment
-    step_length = 0.6
+    step_length = 0.5
     tmp_st_hip, tmp_sw_hip = CorrectHipForStepLength(y_des[:,-1],thigh_length,shank_length,step_length)
     goal_offset[0] = tmp_st_hip - y_des[0,-1]
     goal_offset[1] = tmp_sw_hip - y_des[1,-1]
     
     # Hip dmp unit needs the extral scale to correct the affect from the goal offset
     new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-dmp_gait.y0[0])
-    new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])    
+    new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])
+    new_scale[3] = (dmp_gait.goal[1]+goal_offset[1])/(dmp_gait.goal[1])
     track,track_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
     
     # second step
@@ -347,6 +348,7 @@ else:
     goal_offset[1] = tmp_sw_hip - y_des[1,-1]
     new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-dmp_gait.y0[0])
     new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])
+    new_scale[3] = (dmp_gait.goal[1]+goal_offset[1])/(dmp_gait.goal[1])
     track2,track2_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
 
     # Plot original and updated trajectories
@@ -366,6 +368,24 @@ else:
     axs[1][1].plot(y_des_time, raw_sw_knee, label='raw sw_knee')
     axs[1][1].plot(track_time, sw_knee, label='dmp sw_knee')
     for ax in axs:
+        for a in ax:
+            a.legend()
+    
+    st_hip=track2[0,:]
+    sw_hip=track2[1,:]
+    st_knee=track2[2,:]
+    sw_knee=track2[3,:]
+    f2, axs2 = plt.subplots(2,2)
+    axs2[0][0].plot(y_des_time, raw_st_hip, label='raw st_hip')
+    axs2[0][0].plot(track_time, st_hip, label='dmp st_hip')
+    axs2[1][0].plot(y_des_time, raw_st_knee, label='raw st_knee')
+    axs2[1][0].plot(track_time, st_knee, label='dmp st_knee')
+
+    axs2[0][1].plot(y_des_time, raw_sw_hip, label='raw sw_hip')
+    axs2[0][1].plot(track_time, sw_hip, label='dmp sw_hip')
+    axs2[1][1].plot(y_des_time, raw_sw_knee, label='raw sw_knee')
+    axs2[1][1].plot(track_time, sw_knee, label='dmp sw_knee')
+    for ax in axs2:
         for a in ax:
             a.legend()
     
