@@ -42,6 +42,7 @@ class EXO_SIM:
         
         # swing foot trajectory
         self.traj = []
+        self.body_center = []
     
     def reset(self):
         self.traj = []
@@ -197,15 +198,15 @@ class EXO_SIM:
         
         if plot_mode == "levelground":
             self.plot_level_walking()
-            plt.legend(('left leg','right leg','swing foot traj'))
+            plt.legend(('left leg','right leg','swing foot traj','body center traj'))
         elif plot_mode ==  "obstacle":
             self.plot_level_walking()
             self.plot_obstacle()
-            plt.legend(('left leg','right leg','swing foot traj','obstacle'))
+            plt.legend(('left leg','right leg','swing foot traj','body center traj','obstacle'))
         elif plot_mode ==  "slope": 
             self.plot_level_walking()
             self.plot_slope()
-            plt.legend(('left leg','right leg','swing foot traj','slope'))
+            plt.legend(('left leg','right leg','swing foot traj','body center traj','slope'))
 
         plt.xlim([-1.0, 1.4])
         plt.ylim([-0.25, 1.2])
@@ -233,6 +234,7 @@ class EXO_SIM:
             
             # add trajectory point to plot
             self.traj.append([r_ankle_x,r_ankle_z])
+            self.body_center.append([hip_x,hip_z])
         else:
             r_ankle_z = self.ankle_offset_pz
             r_ankle_x = self.ankle_offset_px
@@ -247,6 +249,7 @@ class EXO_SIM:
             l_ankle_x = hip_x + l_foot_px
             
             self.traj.append([l_ankle_x,l_ankle_z])
+            self.body_center.append([hip_x,hip_z])
         
         # update exo joint and left foot position
         self.lf_px = l_knee_x
@@ -258,10 +261,12 @@ class EXO_SIM:
         right_leg_px = np.array([hip_x,r_knee_x,r_ankle_x])
         right_leg_pz = np.array([hip_z,r_knee_z,r_ankle_z])
         sw_traj = np.array(self.traj)
+        body_center_traj = np.array(self.body_center)
         
         plt.plot(left_leg_px,left_leg_pz,'b-o',lw=3.0)
         plt.plot(right_leg_px,right_leg_pz,'r-*',lw=3.0)
         plt.plot(sw_traj[:,0],sw_traj[:,1],'g',lw=2.0)
+        plt.plot(body_center_traj[:,0],body_center_traj[:,1],'m',lw=2.0)
         
     def plot_obstacle(self):
         # cal obstacle corner position
