@@ -214,9 +214,9 @@ if terrain_type == "obstacle":
     plt.show()
 elif terrain_type == "slope":
     
-    step_length = 0.6
+    step_length = 0.375
     # first step
-    y = y_des[:,0] + [10,10,30,0]
+    y = y_des[:,0] + [0,0,0,0]
     new_scale = np.ones(y.shape[0]) + [0,0,0,0]
     goal_offset = np.zeros(y.shape[0]) + [0,0,0,0]
     
@@ -227,7 +227,8 @@ elif terrain_type == "slope":
     # Hip dmp unit needs the extral scale to correct the affect from the goal offset
     new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-dmp_gait.y0[0])
     new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])
-    new_scale[3] = 1.0 - target_angle[3] / 65.0
+    new_scale[3] = (1.0 - target_angle[3] / 60.0) * step_length / 0.75 # for first method to deal with slope
+    # new_scale[3] = (dmp_gait.goal[1]+goal_offset[1])/(dmp_gait.goal[1]) # for second method(rotate body with slope angle)
     track,track_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
     
     # second step
@@ -236,7 +237,8 @@ elif terrain_type == "slope":
     goal_offset = target_angle - y_des[:,-1]
     new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-dmp_gait.y0[0])
     new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])
-    new_scale[3] = 1.0 - target_angle[3] / 65.0
+    new_scale[3] = (1.0 - target_angle[3] / 60.0)  * step_length / 0.75
+    # new_scale[3] = (dmp_gait.goal[1]+goal_offset[1])/(dmp_gait.goal[1]) # for second method(rotate body with slope angle)
     track2,track2_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
     
     
@@ -389,51 +391,51 @@ else:
         for a in ax:
             a.legend()
     
-    # # plot one step
-    # plt.figure(2)
-    # lh = track[0,:]
-    # lk = track[2,:]
-    # rh = track[1,:]
-    # rk = track[3,:]
-    # exo.plot_one_step(lh,lk,rh,rk,terrain_type)
-    
-    # lh = track2[1,:]
-    # lk = track2[3,:]
-    # rh = track2[0,:]
-    # rk = track2[2,:]
-    # exo.update_stace_leg(False)
-    # exo.plot_one_step(lh,lk,rh,rk,terrain_type)
-    # plt.show()
-    
-    # save to gif
+    # plot one step
     plt.figure(3)
-    filename = 'fig.png'
-    with imageio.get_writer('levelground_walking.gif', mode='I') as writer:
-        lh = track[0,:]
-        lk = track[2,:]
-        rh = track[1,:]
-        rk = track[3,:]
-        for i in range(num//5):
-            j = i * 5
-            exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
-            plt.savefig(filename)
-            plt.close
-            image = imageio.imread(filename)
-            writer.append_data(image)
-        lh = track2[1,:]
-        lk = track2[3,:]
-        rh = track2[0,:]
-        rk = track2[2,:]
-        exo.update_stace_leg(False)
-        for i in range(num//5):
-            j = i * 5
-            exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
-            plt.savefig(filename)
-            plt.close
-            image = imageio.imread(filename)
-            writer.append_data(image)
-    os.remove(filename)       
+    lh = track[0,:]
+    lk = track[2,:]
+    rh = track[1,:]
+    rk = track[3,:]
+    exo.plot_one_step(lh,lk,rh,rk,terrain_type)
+    
+    lh = track2[1,:]
+    lk = track2[3,:]
+    rh = track2[0,:]
+    rk = track2[2,:]
+    exo.update_stace_leg(False)
+    exo.plot_one_step(lh,lk,rh,rk,terrain_type)
     plt.show()
+    
+    # # save to gif
+    # plt.figure(3)
+    # filename = 'fig.png'
+    # with imageio.get_writer('levelground_walking.gif', mode='I') as writer:
+    #     lh = track[0,:]
+    #     lk = track[2,:]
+    #     rh = track[1,:]
+    #     rk = track[3,:]
+    #     for i in range(num//5):
+    #         j = i * 5
+    #         exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
+    #         plt.savefig(filename)
+    #         plt.close
+    #         image = imageio.imread(filename)
+    #         writer.append_data(image)
+    #     lh = track2[1,:]
+    #     lk = track2[3,:]
+    #     rh = track2[0,:]
+    #     rk = track2[2,:]
+    #     exo.update_stace_leg(False)
+    #     for i in range(num//5):
+    #         j = i * 5
+    #         exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
+    #         plt.savefig(filename)
+    #         plt.close
+    #         image = imageio.imread(filename)
+    #         writer.append_data(image)
+    # os.remove(filename)       
+    # plt.show()
     
 
 
