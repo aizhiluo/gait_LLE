@@ -198,15 +198,15 @@ class EXO_SIM:
         
         if plot_mode == "levelground":
             self.plot_level_walking()
-            plt.legend(('left leg','right leg','swing foot traj','body center traj'))
+            plt.legend(('left leg','right leg','swing foot traj','pelvis traj'))
         elif plot_mode ==  "obstacle":
             self.plot_level_walking()
             self.plot_obstacle()
-            plt.legend(('left leg','right leg','swing foot traj','body center traj','obstacle'))
+            plt.legend(('left leg','right leg','swing foot traj','pelvis traj','obstacle'))
         elif plot_mode ==  "slope": 
             self.plot_level_walking()
             self.plot_slope()
-            plt.legend(('left leg','right leg','swing foot traj','body center traj','slope'))
+            plt.legend(('left leg','right leg','swing foot traj','pelvis traj','slope'))
 
         plt.xlim([-1.0, 1.4])
         plt.ylim([-0.25, 1.2])
@@ -278,10 +278,18 @@ class EXO_SIM:
         m = 140
         ramp_px = np.arange(m)*0.01
         ramp_pz = ramp_px * np.tanh(self.slope / 180 * np.pi)
-        ramp_px[m-2] = ramp_px[m-3]
-        ramp_pz[m-2] = 0
-        ramp_px[m-1] = 0
-        ramp_pz[m-1] = 0
+        if self.slope > 0 :
+            ramp_px[m-2] = ramp_px[m-3]
+            ramp_pz[m-2] = 0
+            ramp_px[m-1] = 0
+            ramp_pz[m-1] = 0
+        else:
+            ramp_px[m-3] = 0
+            ramp_pz[m-3] = ramp_pz[m-4]
+            ramp_px[m-2] = 0
+            ramp_pz[m-2] = 0
+            ramp_px[m-1] =-0.8
+            ramp_pz[m-1] = 0
         
         
         plt.plot(ramp_px,ramp_pz,'k-')

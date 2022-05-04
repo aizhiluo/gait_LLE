@@ -126,7 +126,7 @@ def CorrectHipForStepLength(angle,thigh,shank,step_length=None):
     
     return back_hip, front_hip
 
-def JointAngleForRamp(angle,thigh,shank,slope,step_length=None):
+def SlopeModelNoAnkleConstrain(angle,thigh,shank,slope,step_length=None):
     
     st_h = angle[0]
     sw_h = angle[1]
@@ -166,5 +166,64 @@ def JointAngleForRamp(angle,thigh,shank,slope,step_length=None):
         post_sw_h = post_sw_h + slope
         post_st_k = st_k
         post_sw_k = sw_k
+        
+    return np.array([post_st_h,post_sw_h,post_st_k,post_sw_k])
+
+def SlopeModelWithAnkleConstrain(angle,thigh,shank,slope,step_length=None):
+    st_h = angle[0]
+    sw_h = angle[1]
+    st_k = angle[2]
+    sw_k = angle[3]
+    
+    # if no specify step length, using the input joint configuration to calculate the required step length
+    if step_length is None:
+        px1,pz1 = Kinematics(st_h,st_k,thigh,shank)
+        px2,pz2 = Kinematics(sw_h,sw_k,thigh,shank)
+        step_length = np.sqrt((px1-px2)**2 + (pz1-pz2)**2)
+    
+    # Firstly, assume in levelground and obtain target hip joint angles
+    tmp_st_h,tmp_sw_h = CorrectHipForStepLength(angle,thigh,shank,step_length)
+    
+    # For ascent ramp:
+        # first, increasing stance hip and reducing stance knee keep the angle between shank and surfance (ankle angle) is same to the one on levelground
+        # second, adjusting swing hip and knee satisfy the requirement of step length
+    # For descent ramp:
+        # first, reducing swing hip and increasing swing knee
+        # second, adjust stance leg location
+    if slope > 0:
+        alpha = 0.50
+        tmp_st_h = tmp_st_h + slope * alpha
+        tmp_st_k = st_k - slope * (1-alpha)
+        
+        # hip position relative to stance foot 
+        com_px,com_pz = Kinematics(tmp_st_h,tmp_st_k,thigh,shank)
+        com_px = -com_px
+        com_pz = -com_pz
+        
+        # the expected swing foot location relative to stance foot (0,0)
+        swing_location_px = step_length * np.cos(slope*np.pi/180)
+        swing_location_pz = step_length * np.sin(slope*np.pi/180)
+        
+        px = swing_location_px - com_px
+        pz = swing_location_pz - com_pz
+        post_sw_h,post_sw_k = InverseKinematics(np.array([px,pz]),thigh,shank)
+        post_st_h = tmp_st_h
+        post_st_k = tmp_st_k
+    else:
+        alpha = 0.50
+        tmp_sw_h = tmp_sw_h + slope * alpha
+        tmp_sw_k = sw_k - slope * (1-alpha)
+        # hip position relative to swing foot
+        com_px,com_pz = Kinematics(tmp_sw_h,tmp_sw_k,thigh,shank)
+        com_px = -com_px
+        com_pz = -com_pz
+        # the expected stance foot location relative to swing foot (0,0)
+        stance_location_px = - step_length * np.cos(slope*np.pi/180)
+        stance_location_pz = - step_length * np.sin(slope*np.pi/180)
+        px = stance_location_px - com_px
+        pz = stance_location_pz - com_pz
+        post_st_h,post_st_k = InverseKinematics(np.array([px,pz]),thigh,shank)
+        post_sw_h = tmp_sw_h
+        post_sw_k = tmp_sw_k
         
     return np.array([post_st_h,post_sw_h,post_st_k,post_sw_k])
