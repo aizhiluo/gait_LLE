@@ -7,7 +7,7 @@ import os
 
 from copy import deepcopy
 from dmp import DMP
-from utils import CorrectHipForStepLength, JointAngleForRamp, Kinematics, InverseKinematics, JacobianMatrix
+from utils import CorrectHipForStepLength, SlopeModelNoAnkleConstrain, Kinematics, InverseKinematics, JacobianMatrix
 
 def read_gait_data_txt(file_path):
     
@@ -149,7 +149,7 @@ _, _, = dmp_shank.imitate_path()
 
 # create and initial exo simulation models
 is_shank_first = True
-terrain_type = "levelground"
+terrain_type = "slope"
 slope = 10.0
 thigh_length = 0.44
 shank_length = 0.565
@@ -225,7 +225,7 @@ elif terrain_type == "slope":
     new_scale = np.ones(y.shape[0]) + [0,0,0,0]
     goal_offset = np.zeros(y.shape[0]) + [0,0,0,0]
     # Adjust the ending joint angle for ramp walking
-    target_angle = JointAngleForRamp(y_des[:,-1],thigh_length,shank_length,slope,step_length)
+    target_angle = SlopeModelNoAnkleConstrain(y_des[:,-1],thigh_length,shank_length,slope,step_length)
     goal_offset = target_angle - y_des[:,-1]
 
     # Hip dmp unit needs the extral scale to correct the affect from the goal offset
@@ -247,7 +247,7 @@ elif terrain_type == "slope":
     
     # second step
     y = np.array([track[1,-1],track[0,-1],track[3,-1],track[2,-1]])
-    target_angle = JointAngleForRamp(y_des[:,-1],thigh_length,shank_length,slope,step_length)
+    target_angle = SlopeModelNoAnkleConstrain(y_des[:,-1],thigh_length,shank_length,slope,step_length)
     goal_offset = target_angle - y_des[:,-1]
     new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-dmp_gait.y0[0])
     new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])
@@ -344,7 +344,7 @@ elif terrain_type == "slope":
     # # save to gif
     # plt.figure(3)
     # filename = 'fig.png'
-    # with imageio.get_writer('slope_walking.gif', mode='I') as writer:
+    # with imageio.get_writer('10degree_slope_with_shank.gif', mode='I') as writer:
     #     lh = track[0,:]
     #     lk = track[2,:]
     #     rh = track[1,:]
@@ -391,7 +391,7 @@ else:
     new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-dmp_gait.y0[0])
     new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])
     # new_scale[3] = (dmp_gait.goal[1]+goal_offset[1])/(dmp_gait.goal[1])
-    new_scale[3] = step_length / 0.85
+    new_scale[3] = step_length / 0.75
     track,track_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
     
     # second step
@@ -401,7 +401,7 @@ else:
     goal_offset[1] = tmp_sw_hip - y_des[1,-1]
     new_scale[0] = (dmp_gait.goal[0]+goal_offset[0]-y[0])/(dmp_gait.goal[0]-dmp_gait.y0[0])
     new_scale[1] = (dmp_gait.goal[1]+goal_offset[1]-y[1])/(dmp_gait.goal[1]-dmp_gait.y0[1])
-    new_scale[3] = step_length / 0.85
+    new_scale[3] = step_length / 0.75
     track2,track2_time = dmp_gait_generation(dmp_gait,num_steps=500,y0=y,new_scale=new_scale,goal_offset=goal_offset)
 
     # Plot original and updated trajectories
@@ -442,51 +442,51 @@ else:
         for a in ax:
             a.legend()
     
-    # plot one step
-    plt.figure(3)
-    lh = track[0,:]
-    lk = track[2,:]
-    rh = track[1,:]
-    rk = track[3,:]
-    exo.plot_one_step(lh,lk,rh,rk,terrain_type)
-    
-    lh = track2[1,:]
-    lk = track2[3,:]
-    rh = track2[0,:]
-    rk = track2[2,:]
-    exo.update_stace_leg(False)
-    exo.plot_one_step(lh,lk,rh,rk,terrain_type)
-    plt.show()
-    
-    # # save to gif
+    # # plot one step
     # plt.figure(3)
-    # filename = 'fig.png'
-    # with imageio.get_writer('levelground_walking.gif', mode='I') as writer:
-    #     lh = track[0,:]
-    #     lk = track[2,:]
-    #     rh = track[1,:]
-    #     rk = track[3,:]
-    #     for i in range(num//5):
-    #         j = i * 5
-    #         exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
-    #         plt.savefig(filename)
-    #         plt.close
-    #         image = imageio.imread(filename)
-    #         writer.append_data(image)
-    #     lh = track2[1,:]
-    #     lk = track2[3,:]
-    #     rh = track2[0,:]
-    #     rk = track2[2,:]
-    #     exo.update_stace_leg(False)
-    #     for i in range(num//5):
-    #         j = i * 5
-    #         exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
-    #         plt.savefig(filename)
-    #         plt.close
-    #         image = imageio.imread(filename)
-    #         writer.append_data(image)
-    # os.remove(filename)       
+    # lh = track[0,:]
+    # lk = track[2,:]
+    # rh = track[1,:]
+    # rk = track[3,:]
+    # exo.plot_one_step(lh,lk,rh,rk,terrain_type)
+    
+    # lh = track2[1,:]
+    # lk = track2[3,:]
+    # rh = track2[0,:]
+    # rk = track2[2,:]
+    # exo.update_stace_leg(False)
+    # exo.plot_one_step(lh,lk,rh,rk,terrain_type)
     # plt.show()
+    
+    # save to gif
+    plt.figure(3)
+    filename = 'fig.png'
+    with imageio.get_writer('levelground_walking.gif', mode='I') as writer:
+        lh = track[0,:]
+        lk = track[2,:]
+        rh = track[1,:]
+        rk = track[3,:]
+        for i in range(num//5):
+            j = i * 5
+            exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
+            plt.savefig(filename)
+            plt.close
+            image = imageio.imread(filename)
+            writer.append_data(image)
+        lh = track2[1,:]
+        lk = track2[3,:]
+        rh = track2[0,:]
+        rk = track2[2,:]
+        exo.update_stace_leg(False)
+        for i in range(num//5):
+            j = i * 5
+            exo.plot_exo(lh[j],lk[j],rh[j],rk[j],terrain_type)
+            plt.savefig(filename)
+            plt.close
+            image = imageio.imread(filename)
+            writer.append_data(image)
+    os.remove(filename)       
+    plt.show()
     
 
 

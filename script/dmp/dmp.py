@@ -419,6 +419,39 @@ class DMP:
 
         return y, dy, ddy
 
+    def full_generation(self, num_steps,y0,new_scale=None,goal_offset=None,forces=None):
+        """Run DMP system to generate the entire trajectories
+
+        Args:
+            num_steps (_type_): sample data number
+            y0 (_type_): initial position
+            new_scale (_type_, optional): scaling for DMP. Defaults to None.
+            goal_offset (_type_, optional): goal offset. Defaults to None.
+            forces (_type_, optional): extra force terms. Defaults to None.
+
+        Returns:
+            _type_: generated trajectories
+        """
+        track = np.zeros((self.n_dmps, num_steps))
+        tau = (self.timesteps+1) / num_steps
+        track_time = np.arange(num_steps) * self.dt * tau
+        # the goal_offset, scale, and initial position for the generated trajectory
+        if new_scale is None:
+            new_scale = np.ones(self.n_dmps)
+        if goal_offset is None:
+            goal_offset = np.zeros(self.n_dmps)
+        if forces is None:
+            forces = np.zeros((self.n_dmps, num_steps))
+            
+        y = y0
+        dy = np.zeros(self.n_dmps)
+        for i in range(num_steps):            
+            gait_phase = float(i) / num_steps
+            y, dy, ddy = self.step_real(gait_phase,y,dy,scale=new_scale,goal_offset=goal_offset,tau=tau,extra_force=forces[:,i])
+            track[:, i] = deepcopy(y)
+        
+        return track, track_time
+        
     @property
     def psi_track(self):
         """Generate kernel activations along time."""

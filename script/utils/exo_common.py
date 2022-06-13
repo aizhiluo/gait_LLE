@@ -67,10 +67,10 @@ def InverseKinematics(pts,thigh_length,shank_length):
 
         #Prevent from getting out of workspace
         if (dist > shank_length + thigh_length):
-            scale = (shank_length + thigh_length) / dist * 0.999
+            scale = (shank_length + thigh_length) / dist * 0.99999
             px = px * scale
             pz = pz * scale
-            print("Out of robot workspace!")
+            print("Out of robot workspace!",px,pz)
             # sys.exit()
             
 
