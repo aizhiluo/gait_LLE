@@ -12,35 +12,37 @@ import csv
 load_data_flag = True # if true, directly load data from .npy file, otherwise read data from raw data files. 
 is_saving_template = False
 
-subj_tight_shank = [[0.410,0.374],[0.507,0.415],[0.518,0.424],[0.497,0.459],[0.467,0.459]]
+subj_tight_shank = [[0.410,0.374],[0.507,0.415],[0.518,0.424],[0.497,0.459],[0.467,0.398]]
 
 path = 'C:/Users/lincong.luo/Desktop/Mocap_data/5subj/'
-file = ['static_ob_5x10_AnkleTrajectoryAndJointAngles','static_ob_10x10_AnkleTrajectoryAndJointAngles','static_ob_10x20_AnkleTrajectoryAndJointAngles','static_ob_10x30_AnkleTrajectoryAndJointAngles','static_ob_20x10_AnkleTrajectoryAndJointAngles']
+file = ['static_ob_5x10_AnkleTrajectoryAndJointAngles','static_ob_10x10_AnkleTrajectoryAndJointAngles','static_ob_10x20_AnkleTrajectoryAndJointAngles','static_ob_10x30_AnkleTrajectoryAndJointAngles','static_ob_20x10_AnkleTrajectoryAndJointAngles','static_ob_10x10_AnkleTrajectoryAndJointAnglesSplit']
 sheets_name = ['All_Subjs-ankle_pos_aligned','All_Subjs-joint_angle_aligned']
 columns = [['Stance0X','Stance0Y','Stance0Z','Swing0X','Swing0Y','Swing0Z'],['Stance1X','Stance1Y','Stance1Z','Swing1X','Swing1Y','Swing1Z']]
 column_ang = [['Stance0Hip','Swing0Hip','Stance0Knee','Swing0Knee'],['Stance1Hip','Swing1Hip','Stance1Knee','Swing1Knee']]
 
+obsN = 6
+subjN = 5
 
 # swing ankle position relative to the stance ankle
-all_subj_relative_ankle_px = np.zeros((5,5,500)) # obs * subj * gait points num
-all_subj_relative_ankle_pz = np.zeros((5,5,500))
+all_subj_relative_ankle_px = np.zeros((obsN,subjN,500)) # obs * subj * gait points num
+all_subj_relative_ankle_pz = np.zeros((obsN,subjN,500))
 
 # hip and knee of swing and stance legs
-all_subj_st_hip = np.zeros((5,5,500))
-all_subj_sw_hip = np.zeros((5,5,500))
-all_subj_st_knee = np.zeros((5,5,500))
-all_subj_sw_knee = np.zeros((5,5,500))
+all_subj_st_hip = np.zeros((obsN,subjN,500))
+all_subj_sw_hip = np.zeros((obsN,subjN,500))
+all_subj_st_knee = np.zeros((obsN,subjN,500))
+all_subj_sw_knee = np.zeros((obsN,subjN,500))
 
 # ankle position relative to hip joint
-all_subj_st_px = np.zeros((5,5,500))
-all_subj_st_pz = np.zeros((5,5,500))
-all_subj_sw_px = np.zeros((5,5,500))
-all_subj_sw_pz = np.zeros((5,5,500))
+all_subj_st_px = np.zeros((obsN,subjN,500))
+all_subj_st_pz = np.zeros((obsN,subjN,500))
+all_subj_sw_px = np.zeros((obsN,subjN,500))
+all_subj_sw_pz = np.zeros((obsN,subjN,500))
 
 
 if load_data_flag is True:
 # load data from .npy files
-    with open('obst_first_step_all_subj_data.npy','rb') as f:
+    with open('./data/temp/obst_first_step_all_subj_data_split.npy','rb') as f:
         all_subj_st_hip = np.load(f)
         all_subj_sw_hip = np.load(f)
         all_subj_st_knee = np.load(f)
@@ -53,7 +55,7 @@ if load_data_flag is True:
     all_subj_relative_ankle_pz = all_subj_sw_pz - all_subj_st_pz
 else:
     # read data from .xlsx files
-    for i in range(5):
+    for i in range(obsN):
         df = pd.read_excel(path+file[i]+'.xlsx', sheet_name=sheets_name[0])
         all_ankle_pos = np.array(df[['Stance0X','Stance0Z','Swing0X','Swing0Z']].values.tolist()).T
         
@@ -61,7 +63,7 @@ else:
         all_joint_ang = np.array(df_ang[['Stance0Hip','Swing0Hip','Stance0Knee','Swing0Knee']].values.tolist()).T
         
         # 5 subjects, every subject conducts crossing step 4 times
-        for j in range(5):
+        for j in range(subjN):
             sum_pos = np.zeros((4,500)) # [px,pz]
             sum_ang = np.zeros((4,500)) # st_hip, sw_hip, st_knee, sw_knee
             
@@ -96,7 +98,7 @@ else:
             all_subj_relative_ankle_pz = all_subj_sw_pz - all_subj_st_pz
 
     # save data
-    with open('obst_first_step_all_subj_data.npy','wb') as f:
+    with open('obst_first_step_all_subj_data_split.npy','wb') as f:
         np.save(f,all_subj_st_hip)
         np.save(f,all_subj_sw_hip)
         np.save(f,all_subj_st_knee)
@@ -118,9 +120,9 @@ mean_subj_relative_px = all_subj_relative_ankle_px.mean(axis=1) # the swing ankl
 mean_subj_relative_pz = all_subj_relative_ankle_pz.mean(axis=1)
 
 
-""" plot mean data over subjects in different obstacles """
+# """ plot mean data over subjects in different obstacles """
 # # plot average trajectories
-# index = [[0,1,4],[1,2,3]]
+# index = [[0,1,4],[5,2,3]]
 # title_size = 20
 # label_size = 18
 # f, axs = plt.subplots(2,2)
@@ -132,19 +134,19 @@ mean_subj_relative_pz = all_subj_relative_ankle_pz.mean(axis=1)
 # axs[1][0].set_ylabel('st_knee angle',fontsize = label_size)
 # axs[1][1].set_ylabel('st_knee angle',fontsize = label_size)
 
-# axs[0][0].plot(mean_subj_st_hip[0,:],label='5x10')
-# axs[0][0].plot(mean_subj_st_hip[1,:],label='10x10')
-# axs[0][0].plot(mean_subj_st_hip[4,:],label='20x10')
-# axs[1][0].plot(mean_subj_st_knee[0,:],label='5x10')
-# axs[1][0].plot(mean_subj_st_knee[1,:],label='10x10')
-# axs[1][0].plot(mean_subj_st_knee[4,:],label='20x10')
+# axs[0][0].plot(mean_subj_st_hip[index[0][0],:],label='5x10')
+# axs[0][0].plot(mean_subj_st_hip[index[0][1],:],label='10x10')
+# axs[0][0].plot(mean_subj_st_hip[index[0][2],:],label='20x10')
+# axs[1][0].plot(mean_subj_st_knee[index[0][0],:],label='5x10')
+# axs[1][0].plot(mean_subj_st_knee[index[0][1],:],label='10x10')
+# axs[1][0].plot(mean_subj_st_knee[index[0][2],:],label='20x10')
 
-# axs[0][1].plot(mean_subj_st_hip[1,:],label='10x10')
-# axs[0][1].plot(mean_subj_st_hip[2,:],label='10x20')
-# axs[0][1].plot(mean_subj_st_hip[3,:],label='10x30')
-# axs[1][1].plot(mean_subj_st_knee[1,:],label='10x10')
-# axs[1][1].plot(mean_subj_st_knee[2,:],label='10x20')
-# axs[1][1].plot(mean_subj_st_knee[3,:],label='10x30')
+# axs[0][1].plot(mean_subj_st_hip[index[1][0],:],label='10x10')
+# axs[0][1].plot(mean_subj_st_hip[index[1][1],:],label='10x20')
+# axs[0][1].plot(mean_subj_st_hip[index[1][2],:],label='10x30')
+# axs[1][1].plot(mean_subj_st_knee[index[1][0],:],label='10x10')
+# axs[1][1].plot(mean_subj_st_knee[index[1][1],:],label='10x20')
+# axs[1][1].plot(mean_subj_st_knee[index[1][2],:],label='10x30')
 
 # for ax in axs:
 #         for a in ax:
@@ -159,19 +161,19 @@ mean_subj_relative_pz = all_subj_relative_ankle_pz.mean(axis=1)
 # axs1[1][0].set_ylabel('sw_ankle Z',fontsize = label_size)
 # axs1[1][1].set_ylabel('sw_ankle Z',fontsize = label_size)
 
-# axs1[0][0].plot(mean_subj_relative_px[0,:],label='5x10')
-# axs1[0][0].plot(mean_subj_relative_px[1,:],label='10x10')
-# axs1[0][0].plot(mean_subj_relative_px[4,:],label='20x10')
-# axs1[1][0].plot(mean_subj_relative_pz[0,:],label='5x10')
-# axs1[1][0].plot(mean_subj_relative_pz[1,:],label='10x10')
-# axs1[1][0].plot(mean_subj_relative_pz[4,:],label='20x10')
+# axs1[0][0].plot(mean_subj_relative_px[index[0][0],:],label='5x10')
+# axs1[0][0].plot(mean_subj_relative_px[index[0][1],:],label='10x10')
+# axs1[0][0].plot(mean_subj_relative_px[index[0][2],:],label='20x10')
+# axs1[1][0].plot(mean_subj_relative_pz[index[0][0],:],label='5x10')
+# axs1[1][0].plot(mean_subj_relative_pz[index[0][1],:],label='10x10')
+# axs1[1][0].plot(mean_subj_relative_pz[index[0][2],:],label='20x10')
 
-# axs1[0][1].plot(mean_subj_relative_px[1,:],label='10x10')
-# axs1[0][1].plot(mean_subj_relative_px[2,:],label='10x20')
-# axs1[0][1].plot(mean_subj_relative_px[3,:],label='10x30')
-# axs1[1][1].plot(mean_subj_relative_pz[1,:],label='10x10')
-# axs1[1][1].plot(mean_subj_relative_pz[2,:],label='10x20')
-# axs1[1][1].plot(mean_subj_relative_pz[3,:],label='10x30')
+# axs1[0][1].plot(mean_subj_relative_px[index[1][0],:],label='10x10')
+# axs1[0][1].plot(mean_subj_relative_px[index[1][1],:],label='10x20')
+# axs1[0][1].plot(mean_subj_relative_px[index[1][2],:],label='10x30')
+# axs1[1][1].plot(mean_subj_relative_pz[index[1][0],:],label='10x10')
+# axs1[1][1].plot(mean_subj_relative_pz[index[1][1],:],label='10x20')
+# axs1[1][1].plot(mean_subj_relative_pz[index[1][2],:],label='10x30')
 
 # for ax in axs1:
 #         for a in ax:
@@ -186,19 +188,19 @@ mean_subj_relative_pz = all_subj_relative_ankle_pz.mean(axis=1)
 # axs2[1][0].set_ylabel('sw_ankle Z',fontsize = label_size)
 # axs2[1][1].set_ylabel('sw_ankle Z',fontsize = label_size)
 
-# axs2[0][0].plot(mean_subj_st_hip_px[0,:],label='5x10')
-# axs2[0][0].plot(mean_subj_st_hip_px[1,:],label='10x10')
-# axs2[0][0].plot(mean_subj_st_hip_px[4,:],label='20x10')
-# axs2[1][0].plot(mean_subj_st_hip_pz[0,:],label='5x10')
-# axs2[1][0].plot(mean_subj_st_hip_pz[1,:],label='10x10')
-# axs2[1][0].plot(mean_subj_st_hip_pz[4,:],label='20x10')
+# axs2[0][0].plot(mean_subj_st_hip_px[index[0][0],:],label='5x10')
+# axs2[0][0].plot(mean_subj_st_hip_px[index[0][1],:],label='10x10')
+# axs2[0][0].plot(mean_subj_st_hip_px[index[0][2],:],label='20x10')
+# axs2[1][0].plot(mean_subj_st_hip_pz[index[0][0],:],label='5x10')
+# axs2[1][0].plot(mean_subj_st_hip_pz[index[0][1],:],label='10x10')
+# axs2[1][0].plot(mean_subj_st_hip_pz[index[0][2],:],label='20x10')
 
-# axs2[0][1].plot(mean_subj_st_hip_px[1,:],label='10x10')
-# axs2[0][1].plot(mean_subj_st_hip_px[2,:],label='10x20')
-# axs2[0][1].plot(mean_subj_st_hip_px[3,:],label='10x30')
-# axs2[1][1].plot(mean_subj_st_hip_pz[1,:],label='10x10')
-# axs2[1][1].plot(mean_subj_st_hip_pz[2,:],label='10x20')
-# axs2[1][1].plot(mean_subj_st_hip_pz[3,:],label='10x30')
+# axs2[0][1].plot(mean_subj_st_hip_px[index[1][0],:],label='10x10')
+# axs2[0][1].plot(mean_subj_st_hip_px[index[1][1],:],label='10x20')
+# axs2[0][1].plot(mean_subj_st_hip_px[index[1][2],:],label='10x30')
+# axs2[1][1].plot(mean_subj_st_hip_pz[index[1][0],:],label='10x10')
+# axs2[1][1].plot(mean_subj_st_hip_pz[index[1][1],:],label='10x20')
+# axs2[1][1].plot(mean_subj_st_hip_pz[index[1][2],:],label='10x30')
 
 # for ax in axs2:
 #         for a in ax:
@@ -230,33 +232,33 @@ mean_subj_relative_pz = all_subj_relative_ankle_pz.mean(axis=1)
 
 """ plot all subject and obstacles """
 # figure1 plot swing ankle position relative to stance ankle
-index = [0,1,4,1,2,3]
-f, axs = plt.subplots(2,3)
-f.suptitle('swing ankle position relative to hip')
-axs[0][0].set_title('5x10')
-axs[0][1].set_title('10x10')
-axs[0][2].set_title('20x10')
-axs[1][0].set_title('10x10')
-axs[1][1].set_title('10x20')
-axs[1][2].set_title('10x30')
+index = [0,1,4,5,2,3]
+f0, axs0 = plt.subplots(2,3)
+f0.suptitle('swing ankle position relative to hip')
+axs0[0][0].set_title('5x10')
+axs0[0][1].set_title('10x10')
+axs0[0][2].set_title('20x10')
+axs0[1][0].set_title('10x10')
+axs0[1][1].set_title('10x20')
+axs0[1][2].set_title('10x30')
 for i in range(6):
     row = i // 3
     col = i - row * 3
     k = index[i]
-    axs[row][col].set_xlim([-0.05, 0.75])
-    axs[row][col].set_ylim([-0.05, 0.60])
-    axs[row][col].set_xlabel('px/m')
-    axs[row][col].set_ylabel('pz/m')
-    axs[row][col].grid(True)
+    axs0[row][col].set_xlim([-0.05, 0.75])
+    axs0[row][col].set_ylim([-0.05, 0.60])
+    axs0[row][col].set_xlabel('px/m')
+    axs0[row][col].set_ylabel('pz/m')
+    axs0[row][col].grid(True)
     for j in range(5):
         c = 'C'+str(j)
-        axs[row][col].plot(all_subj_relative_ankle_px[k,j,:], all_subj_relative_ankle_pz[k,j,:], label='sub'+str(j+1))
-for ax in axs:
+        axs0[row][col].plot(all_subj_relative_ankle_px[k,j,:], all_subj_relative_ankle_pz[k,j,:], label='sub'+str(j+1))
+for ax in axs0:
         for a in ax:
             a.legend()
             
 # figure2 plot stance join angles with different obstacles
-index = [0,1,4,1,2,3]
+index = [0,1,4,5,2,3]
 f1, axs1 = plt.subplots(2,3)
 f1.suptitle('hip position relative to stance ankle')
 axs1[0][0].set_title('5x10')
@@ -282,7 +284,7 @@ for ax in axs1:
             a.grid(True)
             
 # figure3 plot stance ankle px pz position
-index = [0,1,4,1,2,3]
+index = [0,1,4,5,2,3]
 f2, axs2 = plt.subplots(2,3)
 f2.suptitle('swing ankle position relative to stance ankle')
 axs2[0][0].set_title('5x10')
@@ -297,7 +299,7 @@ for i in range(6):
     k = index[i]
     # axs3[row][col].set_xlim([-0.05, 0.75])
     # axs3[row][col].set_ylim([-0.05, 0.60])
-    axs2[row][col].set_xlabel('px/m')
+    axs2[row][col].set_xlabel('time')
     axs2[row][col].set_ylabel('pz/m')
     axs2[row][col].grid(True)
     for j in range(5):
@@ -309,9 +311,9 @@ for ax in axs2:
             a.legend()
             
 # plot hip joint position
-index = [0,1,4,1,2,3]
+index = [0,1,4,5,2,3]
 f3, axs3 = plt.subplots(2,3)
-f3.suptitle('hip position relative to stance ankle')
+f3.suptitle('hip position changes relative to stance ankle')
 axs3[0][0].set_title('5x10')
 axs3[0][1].set_title('10x10')
 axs3[0][2].set_title('20x10')
@@ -324,19 +326,19 @@ for i in range(6):
     k = index[i]
     # axs3[row][col].set_xlim([-0.05, 0.75])
     # axs3[row][col].set_ylim([-0.05, 0.60])
-    axs3[row][col].set_xlabel('px/m')
+    axs3[row][col].set_xlabel('time')
     axs3[row][col].set_ylabel('pz/m')
     axs3[row][col].grid(True)
     for j in range(5):
         c = 'C'+str(j)
         axs3[row][col].plot(-all_subj_st_px[k,j,:], c, label='sub'+str(j+1)+'-px')
-        axs3[row][col].plot(subj_tight_shank[j][0]+subj_tight_shank[j][1]+all_subj_st_pz[k,j,:], c+'--', label='sub'+str(j+1)+'-pz')
+        axs3[row][col].plot(all_subj_st_pz[k,j,:]-all_subj_st_pz[k,j,0], c+'--', label='sub'+str(j+1)+'-pz')
 for ax in axs3:
         for a in ax:
             a.legend()
 
 # plot stance hip and knee angles
-index = [0,1,4,1,2,3]
+index = [0,1,4,5,2,3]
 f4, axs4 = plt.subplots(2,3)
 f4.suptitle('stance hip and knee angles')
 axs4[0][0].set_title('5x10')
@@ -355,12 +357,63 @@ for i in range(6):
     axs4[row][col].grid(True)
     for j in range(5):
         c = 'C'+str(j)
-        axs4[row][col].plot(all_subj_st_hip[k,j,:],c+'--',label='hip'+str(j+1))
-        axs4[row][col].plot(all_subj_st_knee[k,j,:],c,label='knee'+str(j+1))
+        axs4[row][col].plot(all_subj_st_hip[k,j,:],c,label='hip'+str(j+1))
+        axs4[row][col].plot(all_subj_st_knee[k,j,:],c+'--',label='knee'+str(j+1))
 
-for ax in axs4:
+# for ax in axs4:
+#         for a in ax:
+#             a.legend()
+
+# plot swing hip and knee angles
+index = [0,1,4,5,2,3]
+f5, axs5 = plt.subplots(2,3)
+f5.suptitle('stance hip and knee angles')
+axs5[0][0].set_title('5x10')
+axs5[0][1].set_title('10x10')
+axs5[0][2].set_title('20x10')
+axs5[1][0].set_title('10x10')
+axs5[1][1].set_title('10x20')
+axs5[1][2].set_title('10x30')
+for i in range(6):
+    row = i // 3
+    col = i - row * 3
+    k = index[i]
+    # axs5[row][col].set_ylim([-20, 60])
+    # axs5[row][col].set_xlabel('px/m')
+    axs5[row][col].set_ylabel('angle/[deg]')
+    axs5[row][col].grid(True)
+    for j in range(5):
+        c = 'C'+str(j)
+        axs5[row][col].plot(all_subj_sw_hip[k,j,:],c,label='hip'+str(j+1))
+        axs5[row][col].plot(all_subj_sw_knee[k,j,:],c+'--',label='knee'+str(j+1))
+
+# plot ankle angles
+index = [0,1,4,5,2,3]
+f6, axs6 = plt.subplots(2,3)
+f = f6
+axs = axs6
+f.suptitle('stance ankle angles')
+axs[0][0].set_title('5x10')
+axs[0][1].set_title('10x10')
+axs[0][2].set_title('20x10')
+axs[1][0].set_title('10x10')
+axs[1][1].set_title('10x20')
+axs[1][2].set_title('10x30')
+for i in range(6):
+    row = i // 3
+    col = i - row * 3
+    k = index[i]
+    # axs5[row][col].set_ylim([-20, 60])
+    # axs5[row][col].set_xlabel('px/m')
+    axs[row][col].set_ylabel('angle/[deg]')
+    axs[row][col].grid(True)
+    for j in range(5):
+        c = 'C'+str(j)
+        axs[row][col].plot(all_subj_st_hip[k,j,:] - all_subj_st_knee[k,j,:],c,label='ankle'+str(j+1))
+for ax in axs:
         for a in ax:
             a.legend()
+
             
 plt.show()
 
